@@ -7,6 +7,9 @@ const IMG_DIR = '../../assets/estratte/';
 const BOX_ICON = `<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="4.5" stroke-linejoin="round">
   <path d="M8 20 L32 8 L56 20 L56 46 L32 58 L8 46 Z"/><path d="M8 20 L32 32 L56 20"/><path d="M32 32 L32 58"/><path d="M20 14 L44 26" stroke-width="3.5"/></svg>`;
 
+const CHECK_ICON = `<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="square" stroke-linejoin="miter">
+  <path d="M12 33 L26 47 L53 18"/></svg>`;
+
 const el = (tag, cls, html) => {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -74,8 +77,11 @@ export class Overlay {
 
   images() { return [...this.stage.querySelectorAll('img')]; }
 
-  /** @param project (partName, point) => {x, y, behind} in coordinate stage 1920x1080 */
-  update(t, project) {
+  /**
+   * @param project (partName, point) => {x, y, behind} in coordinate stage 1920x1080
+   * @param cam     { dist } distanza della camera (mm): nei primi piani l'intestazione si attenua
+   */
+  update(t, project, cam = {}) {
     const ov = this.ov;
     const vis = (e, a) => { e.style.opacity = a.toFixed(3); e.style.visibility = a > 0.002 ? 'visible' : 'hidden'; };
 
@@ -86,7 +92,8 @@ export class Overlay {
 
     // intestazione + didascalia
     const ap = windowFade(t, ov.captionsFrom, ov.captionsTo, 0.5, 0.5);
-    vis(this.brand, ap);
+    const near = cam.dist ? clamp01((cam.dist - 900) / 1300) : 1;
+    vis(this.brand, windowFade(t, ov.brandFrom, ov.captionsTo, 0.5, 0.5) * (0.38 + 0.62 * near));
     vis(this.caption, ap);
     this.caption.style.transform = `translateY(${(1 - EASE.out(clamp01((t - ov.captionsFrom) / 0.7))) * 40}px)`;
 
@@ -95,28 +102,34 @@ export class Overlay {
       this.curStep = step;
       this.cTitle.textContent = step.title;
       this.cBody.textContent = step.body || '';
-      if (step.n) {
-        this.cBadge.innerHTML = `<span class="num">${step.n}</span>`;
+      if (step.icon === 'check') {
+        this.cBadge.innerHTML = `<span class="glyph">${CHECK_ICON}</span>`;
+        this.cCount.innerHTML = `<em>Completato</em>`;
+      } else if (step.n) {
+        this.cBadge.innerHTML = `<span class="glyph num">${step.n}</span>`;
         this.cCount.innerHTML = `Passo <em>${step.n}</em> / ${this.numbered.length}`;
       } else {
-        this.cBadge.innerHTML = BOX_ICON;
+        this.cBadge.innerHTML = `<span class="glyph">${BOX_ICON}</span>`;
         this.cCount.textContent = 'Contenuto';
       }
+      this.cGlyph = this.cBadge.firstChild;
     }
     if (step) {
       const last = step === this.captionSteps[this.captionSteps.length - 1];
       const t0 = Math.max(step.t0, ov.captionsFrom);
-      const a = windowFade(t, t0 - 0.001, last ? step.t1 + 10 : step.t1, 0.45, 0.32);
+      // il pannello e il fondo arancio del badge restano pieni: cambiano solo testo e cifra
+      const a = windowFade(t, t0 - 0.001, last ? step.t1 + 10 : step.t1, 0.25, 0.15);
       this.cText.style.opacity = a.toFixed(3);
-      this.cBadge.style.opacity = a.toFixed(3);
+      this.cGlyph.style.opacity = a.toFixed(3);
       const slide = (1 - EASE.out(clamp01((t - t0) / 0.5))) * 16;
       this.cText.style.transform = `translateY(${slide}px)`;
       for (let i = 0; i < this.cSegs.length; i++) {
         const sn = this.numbered[i];
         let f = 0;
-        if (step.n) f = sn.n < step.n ? 1 : sn.n === step.n ? clamp01((t - sn.t0) / (sn.t1 - sn.t0)) : 0;
+        if (step.icon === 'check') f = 1;
+        else if (step.n) f = sn.n < step.n ? 1 : sn.n === step.n ? clamp01((t - sn.t0) / (sn.t1 - sn.t0)) : 0;
         this.cSegs[i].firstChild.style.width = (f * 100).toFixed(2) + '%';
-        this.cSegs[i].classList.toggle('cur', sn.n === step.n);
+        this.cSegs[i].classList.toggle('cur', sn.n === step.n && step.icon !== 'check');
       }
     }
 

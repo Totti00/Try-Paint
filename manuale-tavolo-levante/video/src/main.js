@@ -18,7 +18,6 @@ const qs = new URLSearchParams(location.search);
 const RENDER_MODE = qs.has('render');
 const W = +qs.get('w') || window.innerWidth;
 const H = +qs.get('h') || window.innerHeight;
-const LENS_SHIFT = 0.085;      // sposta il soggetto verso l'alto (spazio per la didascalia)
 const DEG = Math.PI / 180;
 
 async function loadFonts() {
@@ -74,6 +73,28 @@ function makeHelpers(scene) {
   return helpers;
 }
 
+/** aloni arancio attorno alla minuteria evidenziata: rendono leggibili le viti nelle inquadrature larghe */
+function makeHalos(scene, rig) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d');
+  g.strokeStyle = '#fff'; g.lineWidth = 10;
+  g.beginPath(); g.arc(64, 64, 52, 0, Math.PI * 2); g.stroke();
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const halos = [];
+  for (const name of Object.keys(rig.parts)) {
+    if (!/^(M8_|WS_)/.test(name)) continue;
+    const mat = new THREE.SpriteMaterial({ map: tex, color: 0xff7e00, transparent: true, opacity: 0, depthTest: false, depthWrite: false });
+    const sp = new THREE.Sprite(mat);
+    sp.renderOrder = 10;
+    sp.visible = false;
+    scene.add(sp);
+    halos.push({ name, sp, mat });
+  }
+  return halos;
+}
+
 async function init() {
   await loadFonts();
 
@@ -117,16 +138,45 @@ async function init() {
   const model = await loadModel();
   const rig = new Rig(THREE, scene, model.parts);
   const helpers = makeHelpers(scene);
+  const halos = makeHalos(scene, rig);
 
   const axes = {};
   for (const [n, o] of Object.entries(model.parts)) if (o.userData.axis) axes[n] = o.userData.axis;
-  const tl = buildTimeline({ axes });
+  const tl = buildTimeline({ axes, joints: JOINTS });
   const tracks = Object.fromEntries(Object.entries(tl.tracks).map(([n, k]) => [n, compileTrack(k)]));
   const groups = Object.fromEntries(Object.entries(tl.groups).map(([n, k]) => [n, compileTrack(k)]));
-  const cam = compileTrack(tl.camera.map((k) => ({ t: k.t, target: k.target, ld: Math.log(k.dist), az: k.az, el: k.el, fov: k.fov, ease: k.ease })));
 
-  const camera = new THREE.PerspectiveCamera(30, W / H, 40, 60000);
+  // camera: la lista di keyframe e' divisa in "inquadrature" ai keyframe con `cut`;
+  // all'inizio di ogni inquadratura c'e' una dissolvenza incrociata di `cut` secondi
+  // (true = DISSOLVE_DEFAULT, 0 = stacco netto).
+  const DISSOLVE_DEFAULT = 0.4;
+  const shots = [];
+  for (const k of tl.camera) {
+    if (!shots.length || (k.cut !== undefined && k.cut !== false)) {
+      shots.push({ t0: k.t, dis: shots.length ? (k.cut === true ? DISSOLVE_DEFAULT : +k.cut) : 0, keys: [] });
+    }
+    shots[shots.length - 1].keys.push({ t: k.t, target: k.target, ld: Math.log(k.dist), az: k.az, el: k.el, fov: k.fov, sx: k.sx, sy: k.sy, ease: k.ease });
+  }
+  for (const sh of shots) sh.track = compileTrack(sh.keys);
+  const shotIndexAt = (t) => {
+    let i = 0;
+    while (i + 1 < shots.length && shots[i + 1].t0 <= t) i++;
+    return i;
+  };
+
+  const camera = new THREE.PerspectiveCamera(30, W / H, 40, 60000);     // inquadratura corrente
+  const camPrev = new THREE.PerspectiveCamera(30, W / H, 40, 60000);    // inquadratura uscente (dissolvenza)
   const camTarget = new THREE.Vector3();
+  // copia dell'inquadratura uscente, sopra il canvas WebGL: ha lo stesso fondale in CSS,
+  // quindi con opacita' 1-u realizza una vera dissolvenza incrociata dello strato 3D
+  const ghost = document.getElementById('ghost');
+  ghost.width = W; ghost.height = H;
+  ghost.style.width = W + 'px'; ghost.style.height = H + 'px';
+  const gctx = ghost.getContext('2d');
+  // nei primi piani il fondale si scurisce appena: l'alluminio bianco si stacca dal fondo
+  const dimEl = document.getElementById('dim');
+  const DIM_RGB = '150,130,110';
+  const dimFor = (dist) => 0.17 * Math.min(1, Math.max(0, (2100 - dist) / 1100));
 
   const stage = document.getElementById('stage');
   stage.style.transform = `scale(${W / 1920})`;
@@ -134,38 +184,92 @@ async function init() {
   await Promise.all(overlay.images().map((img) => (img.complete ? img.decode() : new Promise((r) => { img.onload = r; img.onerror = r; })).catch(() => {})));
 
   const v = new THREE.Vector3();
+  let projCam = camera;
   const project = (part, point) => {
     rig.anchorWorld(part, point, v);
-    v.project(camera);
+    v.project(projCam);
     return { x: (v.x + 1) * 960, y: (1 - v.y) * 540, behind: v.z > 1 };
   };
 
+  /** posa una camera secondo un'inquadratura all'istante t; restituisce la distanza */
+  function poseCamera(cam, shot, t) {
+    const ch = shot.track;
+    const tg = evalChannel(ch.target, t, [0, 0, 0]);
+    const dist = Math.exp(evalChannel(ch.ld, t, Math.log(4000)));
+    const az = evalChannel(ch.az, t, 30) * DEG, el = evalChannel(ch.el, t, 20) * DEG;
+    camTarget.set(tg[0], tg[1], tg[2]);
+    cam.position.set(tg[0] + dist * Math.cos(el) * Math.sin(az), tg[1] + dist * Math.sin(el), tg[2] + dist * Math.cos(el) * Math.cos(az));
+    cam.fov = evalChannel(ch.fov, t, 30);
+    cam.lookAt(camTarget);
+    // decentramento ottico: sy>0 alza il soggetto (spazio per la didascalia), sx>0 lo sposta a sinistra
+    cam.setViewOffset(W, H, W * evalChannel(ch.sx, t, 0), H * evalChannel(ch.sy, t, 0.085), W, H);
+    cam.updateMatrixWorld(true);
+    return dist;
+  }
+
+  // aloni: solo quando la camera e' lontana (nei primi piani la vite si vede gia')
+  function updateHalos(hl, dist) {
+    const far = Math.min(1, Math.max(0, (dist - 1400) / 900));
+    for (const H of halos) {
+      const a = (hl[H.name] || 0) * far;
+      H.sp.visible = a > 0.01;
+      if (!H.sp.visible) continue;
+      const P = rig.parts[H.name];
+      rig.anchorWorld(H.name, [P.center.x, P.center.y, P.center.z], H.sp.position);
+      H.mat.opacity = 0.95 * a;
+      const k = 90 + 60 * (1 - a);
+      H.sp.scale.set(k, k, 1);
+    }
+  }
+  // contorni piu' marcati nei primi piani: 0.4 -> ~0.66 sotto i 1200 mm
+  const edgeScaleFor = (dist) => 1 + 0.65 * Math.min(1, Math.max(0, (2200 - dist) / 1000));
+
   function renderAt(t) {
+    const hl = {};
     for (const [name, ch] of Object.entries(tracks)) {
       const st = evalPart(ch, t);
+      hl[name] = st.h * st.o;
       if (rig.parts[name]) rig.setPart(name, st);
       else if (helpers[name]) helpers[name](st, t);
     }
     for (const [name, ch] of Object.entries(groups)) {
       rig.setGroup(name, { p: evalChannel(ch.p, t, [0, 0, 0]), r: evalChannel(ch.r, t, [0, 0, 0]) });
     }
-    // camera orbitale: target + distanza (interpolata in log) + azimut/elevazione
-    const tg = evalChannel(cam.target, t, [0, 0, 0]);
-    const dist = Math.exp(evalChannel(cam.ld, t, Math.log(4000)));
-    const az = evalChannel(cam.az, t, 30) * DEG, el = evalChannel(cam.el, t, 20) * DEG;
-    camTarget.set(tg[0], tg[1], tg[2]);
-    camera.position.set(tg[0] + dist * Math.cos(el) * Math.sin(az), tg[1] + dist * Math.sin(el), tg[2] + dist * Math.cos(el) * Math.cos(az));
-    camera.fov = evalChannel(cam.fov, t, 30);
-    camera.lookAt(camTarget);
-    camera.setViewOffset(W, H, 0, H * LENS_SHIFT, W, H);   // chiama updateProjectionMatrix
-    camera.updateMatrixWorld(true);
     scene.updateMatrixWorld(true);
-    overlay.update(t, project);
+    // camera orbitale: target + distanza (interpolata in log) + azimut/elevazione
+    const si = shotIndexAt(t), shot = shots[si];
+    const u = si > 0 && shot.dis > 0 ? (t - shot.t0) / shot.dis : 1;
+    let distPrev = null;
+    if (u < 1) {
+      // dissolvenza: prima l'inquadratura uscente, copiata nel canvas "ghost"
+      distPrev = poseCamera(camPrev, shots[si - 1], t);
+      rig.setEdgeScale(edgeScaleFor(distPrev));
+      updateHalos(hl, distPrev);
+      renderer.render(scene, camPrev);
+      gctx.clearRect(0, 0, W, H);
+      gctx.drawImage(canvas, 0, 0, W, H);
+      const a = 1 - (u * u * (3 - 2 * u));
+      const dp = dimFor(distPrev).toFixed(3);
+      ghost.style.backgroundImage = `linear-gradient(rgba(${DIM_RGB},${dp}), rgba(${DIM_RGB},${dp})), var(--studio)`;
+      ghost.style.opacity = a.toFixed(4);
+      ghost.style.visibility = 'visible';
+    } else {
+      ghost.style.visibility = 'hidden';
+    }
+    const dist = poseCamera(camera, shot, t);
+    dimEl.style.opacity = dimFor(dist).toFixed(3);
+    rig.setEdgeScale(edgeScaleFor(dist));
+    updateHalos(hl, dist);
+    // le etichette seguono l'inquadratura dominante
+    const dominant = u < 0.5 ? camPrev : camera;
+    projCam = dominant;
+    overlay.update(t, project, { dist: u < 0.5 ? distPrev : dist });
     renderer.render(scene, camera);
     return t;
   }
 
   window.renderAt = renderAt;
+  window.__debug = { scene, rig, camera, shots: shots.map((s) => ({ t0: s.t0, dis: s.dis })) };          // per verifiche automatiche (vedi README)
   window.timeline = {
     duration: tl.duration, fps: tl.fps,
     steps: tl.steps.map(({ id, n, title, t0, t1 }) => ({ id, n, title, t0: +t0.toFixed(2), t1: +t1.toFixed(2) })),

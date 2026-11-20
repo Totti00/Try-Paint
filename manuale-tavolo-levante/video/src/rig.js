@@ -10,9 +10,11 @@
 // spostamenti (p), rotazioni attorno al perno (r), rotazione attorno al proprio
 // asse di avvitamento (s), opacita' (o) ed evidenziazione arancio (h, hb).
 
-const ORANGE = 0xff7e00;
+const ORANGE = 0xff7e00;          // contorni evidenziati
+const TINT = 0xffc25a;            // colore verso cui si tinge la superficie (resa ~#FAD0A0, tinta ~30°)
+const TINT_GLOW = 0xffa63a;       // piccola emissione per non spegnere le parti in ombra
 const INK = 0x1f1c1a;
-const EDGE_OPACITY = 0.3;
+const EDGE_OPACITY = 0.4;
 
 export const GROUP_OF = (name) => (name === 'P1' || name.startsWith('WS_') ? 'TOP' : 'STRUCT');
 
@@ -26,7 +28,10 @@ export class Rig {
     this.tmpE = new THREE.Euler();
     this.tmpV = new THREE.Vector3();
     this.orange = new THREE.Color(ORANGE);
+    this.tint = new THREE.Color(TINT);
+    this.tintGlow = new THREE.Color(TINT_GLOW);
     this.ink = new THREE.Color(INK);
+    this.edgeK = 1;                         // moltiplicatore dell'opacita' dei contorni (primi piani)
 
     const mkGroup = (name, parent, pivot) => {
       const g = new THREE.Group();
@@ -63,6 +68,7 @@ export class Rig {
         o.material = o.material.clone();
         o.userData.baseCast = o.castShadow;
         o.userData.baseEmissive = o.material.emissive ? o.material.emissive.clone() : null;
+        o.userData.baseColor = o.material.color ? o.material.color.clone() : null;
         meshes.push(o);
       } else if (o.isLineSegments && o.userData.isEdge) {
         o.material = o.material.clone();
@@ -127,8 +133,15 @@ export class Rig {
       m.material.depthWrite = o > 0.35;
       m.castShadow = m.userData.baseCast && o > 0.55;
     }
-    for (const e of P.edges) e.material.opacity = e.userData.baseOpacity * o;
+    for (const e of P.edges) e.material.opacity = Math.min(1, e.userData.baseOpacity * this.edgeK) * o;
     P.lastH = -1;                            // forza il ricalcolo dei contorni
+  }
+
+  /** contorni piu' marcati nei primi piani (l'alluminio bianco si stacca dal fondale chiaro) */
+  setEdgeScale(k) {
+    if (Math.abs(k - this.edgeK) < 0.005) return;
+    this.edgeK = k;
+    for (const P of Object.values(this.parts)) P.lastO = -1;   // forza il ricalcolo
   }
 
   setHighlight(P, h, hb) {
@@ -136,15 +149,18 @@ export class Rig {
     P.lastH = h; P.lastHb = hb;
     for (const m of P.meshes) {
       const k = Math.max(h, m.userData.role === 'bracket' ? hb : 0);
-      // i materiali "basic" (fori, cava esagonale) non vengono tinti
+      // si tinge il colore di base (non l'emissione, che col tone mapping vira al rosa);
+      // i materiali "basic" (fori, asole, cava esagonale) non vengono tinti
       if (m.material.emissive) {
-        m.material.emissive.copy(this.orange).multiplyScalar(0.42 * k).add(m.userData.baseEmissive);
+        m.material.color.copy(m.userData.baseColor).lerp(this.tint, 0.62 * k);
+        m.material.emissive.copy(this.tintGlow).multiplyScalar(0.15 * k).add(m.userData.baseEmissive);
       }
     }
     for (const e of P.edges) {
       const k = Math.max(h, e.userData.role === 'bracket' ? hb : 0);
+      const base = Math.min(1, e.userData.baseOpacity * this.edgeK);
       e.material.color.copy(this.ink).lerp(this.orange, k);
-      e.material.opacity = (e.userData.baseOpacity + (0.9 - e.userData.baseOpacity) * k) * Math.max(P.lastO, 0);
+      e.material.opacity = (base + (0.9 - base) * k) * Math.max(P.lastO, 0);
     }
   }
 

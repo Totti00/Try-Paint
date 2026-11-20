@@ -6,15 +6,17 @@
 //   node render.mjs                         1920x1080, 30 fps -> montaggio-tavolo-levante.mp4
 //   node render.mjs --preview --out /tmp/p.mp4      960x540, 15 fps
 //   node render.mjs --stills 12,30.5 --stills-dir /tmp/st   solo fotogrammi PNG
+//   node render.mjs --poster [secondi]       poster.jpg (1920x1080, default t = 2.4: tavolo finito + titolo)
 //   node render.mjs --from 40 --to 52 --out clip.mp4         solo un intervallo
 //   node render.mjs --workers 2              piu' pagine in parallelo (segmenti concatenati)
 //   node render.mjs --serve                  server locale per l'anteprima nel browser
+//   node render.mjs --cad models/tavolo.glb  usa il modello CAD reale (vedi README)
 
 import http from 'node:http';
 import { createReadStream, existsSync, mkdirSync, statSync, writeFileSync, rmSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { dirname, join, extname, resolve, normalize } from 'node:path';
+import { dirname, join, extname, resolve, normalize, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import os from 'node:os';
 
@@ -39,6 +41,10 @@ const out = resolve(opt('out', join(HERE, preview ? 'preview.mp4' : 'montaggio-t
 const workers = Math.max(1, +opt('workers', 1));
 const quality = +opt('jpeg', 93);
 const ffmpegBin = opt('ffmpeg', existsSync('/usr/bin/ffmpeg') ? '/usr/bin/ffmpeg' : 'ffmpeg');
+// modello CAD reale (GLB) al posto del modello parametrico: percorso del file, deve stare
+// dentro manuale-tavolo-levante/ (es. video/models/tavolo.glb)
+const cad = opt('cad', null);
+const cadQuery = cad ? '&cad=' + encodeURIComponent('/' + relative(ROOT, resolve(cad)).split('\\').join('/')) + (opt('cad-rot-y', null) ? '&cadRotY=' + opt('cad-rot-y') : '') : '';
 
 // ---------------------------------------------------------------- server statico
 const MIME = {
@@ -73,7 +79,7 @@ async function openPage(browser, base) {
   const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });
   page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') console.log('[page]', m.text()); });
   page.on('pageerror', (e) => console.log('[pageerror]', e.message));
-  await page.goto(`${base}${PAGE}?render&w=${width}&h=${height}`, { waitUntil: 'load' });
+  await page.goto(`${base}${PAGE}?render&w=${width}&h=${height}${cadQuery}`, { waitUntil: 'load' });
   await page.evaluate(() => window.ready);
   return page;
 }
@@ -87,7 +93,7 @@ function startFfmpeg(file) {
   const ff = spawn(ffmpegBin, [
     '-y', '-loglevel', 'error',
     '-f', 'image2pipe', '-framerate', String(fps), '-c:v', 'mjpeg', '-i', '-',
-    '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p',
+    '-c:v', 'libx264', '-preset', 'medium', '-crf', String(opt('crf', 18)), '-pix_fmt', 'yuv420p',
     '-r', String(fps), '-movflags', '+faststart', file,
   ], { stdio: ['pipe', 'inherit', 'inherit'] });
   const done = new Promise((res, rej) => ff.on('close', (c) => (c === 0 ? res() : rej(new Error('ffmpeg exit ' + c)))));
@@ -125,7 +131,15 @@ if (opt('serve', false)) {
   const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   try {
     const stills = opt('stills', null);
-    if (stills) {
+    const poster = opt('poster', null);
+    if (poster) {
+      const t = poster === true ? 2.4 : +poster;
+      const page = await openPage(browser, base);
+      await page.evaluate((tt) => window.renderAt(tt), t);
+      const f = resolve(opt('out', join(HERE, 'poster.jpg')).replace(/\.mp4$/, '.jpg'));
+      writeFileSync(f, await page.screenshot({ type: 'jpeg', quality: 90 }));
+      console.log(f);
+    } else if (stills) {
       const dir = resolve(opt('stills-dir', join(os.tmpdir(), 'levante-stills')));
       mkdirSync(dir, { recursive: true });
       const page = await openPage(browser, base);
