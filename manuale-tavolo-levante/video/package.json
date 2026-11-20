@@ -1,0 +1,16 @@
+{
+  "name": "montaggio-tavolo-levante-video",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Animazione di montaggio del Tavolo Levante (three.js + Playwright + ffmpeg)",
+  "type": "module",
+  "scripts": {
+    "vendor": "node tools/vendor-three.mjs",
+    "preview": "node render.mjs --preview",
+    "render": "node render.mjs",
+    "serve": "node render.mjs --serve"
+  },
+  "devDependencies": {
+    "three": "0.170.0"
+  }
+}
