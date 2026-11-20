@@ -31,7 +31,7 @@ export class Overlay {
     // titolo iniziale
     this.intro = el('div', null,
       '<div class="kicker">Istruzioni di montaggio</div><h1>Tavolo Levante</h1><div class="rule"></div>' +
-      '<div class="sub">Tavolo da esterno in alluminio e legno</div>');
+      '<div class="sub">Struttura in alluminio, piano a doghe in legno</div>');
     this.intro.id = 'intro';
     // linee guida etichette
     this.svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
