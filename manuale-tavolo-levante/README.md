@@ -11,7 +11,9 @@ Nuova impaginazione del manuale di montaggio dei **Tavoli Levante, Libeccio e Ma
 | `assets/img/` → `assets/img2x/` → `assets/final/` | Immagini rifilate → ingrandite 2× (super-resolution EDSR) → versioni finali con sfondo bianco puro |
 | `assets/fonts/` | Font Barlow (licenza libera SIL OFL) |
 | `tools/` | Script per rigenerare immagini e PDF |
-| `video/` | Animazione 3D del montaggio (vedi `video/README.md`) |
+| `video/montaggio-tavolo-levante.mp4` | **Video di montaggio** (1920×1080, 30 fps, 96 s, didascalie in italiano) |
+| `video/montaggio-tavolo-levante-720p.mp4` | Versione leggera (4 MB) da mandare su WhatsApp/email |
+| `video/` | Sorgente dell'animazione 3D (vedi `video/README.md`) |
 
 ## Struttura del nuovo manuale
 
