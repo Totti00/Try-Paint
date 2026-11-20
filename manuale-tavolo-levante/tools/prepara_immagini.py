@@ -34,7 +34,15 @@ for src in sorted(SRC1.glob("*.png")):
     name = src.name
     im = Image.open(best_source(name)).convert("RGB")
     if name == LOGO:
-        im.save(OUT / name, optimize=True)  # il logo resta sul suo beige
+        # il logo resta sul suo beige: i pixel quasi-beige diventano esattamente
+        # #DBD3CB, così il riquadro si fonde con il retro senza bordi visibili
+        px = im.load()
+        for y in range(im.height):
+            for x in range(im.width):
+                r, g, b = px[x, y]
+                if abs(r - BEIGE[0]) <= 6 and abs(g - BEIGE[1]) <= 6 and abs(b - BEIGE[2]) <= 6:
+                    px[x, y] = BEIGE
+        im.save(OUT / name, optimize=True)
         continue
     whiten(im).save(OUT / name, optimize=True)
     print("ok", name, im.size)

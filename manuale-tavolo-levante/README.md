@@ -34,6 +34,12 @@ I testi sono quelli dell'originale. Sono passati dal tutto maiuscolo al maiuscol
 - **Box di avviso al passo 3** ("Non serrare ancora le viti: il serraggio avviene al passo 5").
 - **Pagina "Sequenza di montaggio"**, una panoramica che non c'era.
 - "Rondella in plastica" diventa "rondella in nylon", come nella tabella della ferramenta. "Buco di serraggio" diventa "foro di serraggio". "Panchetto Volpina" diventa "panca Volpina", come in copertina.
+- **Altre piccole modifiche al testo:**
+  - passo 5: "al termine delle *seguenti* procedure" diventa "*precedenti*" (era un refuso dell'originale);
+  - passo 2: "fissaggio dei piani" diventa "del piano", e "come in figura" compare una volta sola;
+  - passo 3: "sotto testa" diventa "sottotesta";
+  - passo 7: "nell'asola presente" diventa "nelle asole presenti" (6 viti in 6 angolari);
+  - al passo 5 è evidenziato anche "serraggio delle 10 viti".
 
 ## Rigenerare il PDF
 

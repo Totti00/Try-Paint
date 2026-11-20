@@ -21,7 +21,7 @@
 :root {
   --ink: #1f1c1a;
   --text: #3b3632;
-  --muted: #8a8078;
+  --muted: #766d66;
   --line: #e4ded7;
   --beige: #dbd3cb;          /* beige del marchio Ramberti group */
   --beige-soft: #f2eee9;
@@ -74,7 +74,7 @@ img { display: block; }
 }
 .cover-products .cat {
   display: block; font-size: 7.5pt; font-weight: 600; letter-spacing: .2em;
-  text-transform: uppercase; color: #6b625b; margin-bottom: 2.2mm;
+  text-transform: uppercase; color: #5a524c; margin-bottom: 2.2mm;
 }
 .cover-products ul { list-style: none; }
 .cover-products li {
@@ -85,7 +85,7 @@ img { display: block; }
   position: absolute; top: 156mm; bottom: 0; left: 0; right: 0;
   display: flex; align-items: center; justify-content: center;
 }
-.cover-hero img { width: 152mm; }
+.cover-hero img { width: 138mm; }
 
 /* ------------------------------------------------------ TESTATA / PIÈ DI PAGINA */
 .run-head {
@@ -144,7 +144,7 @@ h2.sec .sec-n {
 .hw .qty {
   position: absolute; top: 3mm; right: 3mm;
   font-family: var(--num); font-weight: 700; font-size: 13pt; line-height: 1;
-  color: #fff; background: var(--orange); border-radius: 1.4mm; padding: 1.3mm 2.2mm 1.1mm;
+  color: #fff; background: var(--orange-ink); border-radius: 1.4mm; padding: 1.3mm 2.2mm 1.1mm;
 }
 .hw .card-txt { border-top: .3mm solid var(--line); padding: 3mm 4mm 3.4mm; }
 .hw .card-txt b { display: block; font-family: var(--head); font-weight: 700; font-size: 11pt; color: var(--ink); line-height: 1.2; }
@@ -177,7 +177,9 @@ h2.sec .sec-n {
 }
 .phase-label.tight { margin: 4mm 0 4.5mm; }
 
-.ov-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5mm; margin-bottom: 7mm; }
+.ov-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5mm; margin-bottom: 7mm; }
+.ov-grid > .ov { grid-column: span 2; }
+.ov-grid > .ov:nth-child(3n+1):nth-last-child(2) { grid-column: 2 / span 2; }
 .ov { border: .3mm solid var(--line); border-radius: 2.5mm; overflow: hidden; background: #fff; }
 .ov-img { height: 46mm; display: flex; align-items: center; justify-content: center; padding: 3mm; }
 .ov-img img { max-width: 100%; max-height: 100%; object-fit: contain; }
@@ -234,6 +236,8 @@ h2.sec .sec-n {
 .fig { background: #fff; border: .3mm solid var(--line); border-radius: 2.5mm; overflow: hidden; }
 .fig-wide { grid-column: 2 / -1; }
 .fig-wide img { width: 100%; }
+.fig-wide.contain { display: flex; justify-content: center; padding: 4mm; }
+.fig-wide.contain img { width: auto; height: 100mm; }
 .fig-wide.crop img { height: 70mm; object-fit: cover; object-position: 55% 50%; }
 .fig-side {
   grid-column: 3; grid-row: 1 / span 2;
@@ -243,12 +247,6 @@ h2.sec .sec-n {
 .fig-side img { max-width: 100%; max-height: 62mm; object-fit: contain; }
 .fig-side.tall img { max-height: 84mm; }
 .fig-side.big img { max-height: 86mm; }
-.fig figcaption {
-  align-self: stretch; display: flex; align-items: center; gap: 2.4mm;
-  margin-top: 4mm; padding-top: 3mm; border-top: .3mm solid var(--line);
-  font-family: var(--head); font-weight: 600; font-size: 9.5pt; color: var(--ink);
-}
-.fig figcaption .code { height: 6.4mm; min-width: 8.5mm; font-size: 10pt; }
 
 .step-sep { border: 0; border-top: .25mm dashed #d6cec6; margin: 7mm 0 7mm 22mm; }
 
@@ -282,4 +280,7 @@ h2.sec .sec-n {
 
 /* -------------------------------------------------------------------- RETRO */
 .back { background: var(--beige); display: flex; align-items: center; justify-content: center; }
-.back-logos { width: 128mm; margin-top: -30mm; }
+.back-logos { width: 128mm; margin-top: -30mm; clip-path: inset(1mm 0 0 0); }
+
+/* a capo più equilibrati: niente parole isolate sull’ultima riga */
+p, .ov-txt b, .comp .card-txt p { text-wrap: pretty; }
