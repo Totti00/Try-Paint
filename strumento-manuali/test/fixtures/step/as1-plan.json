@@ -1,0 +1,252 @@
+{
+ "version": 1,
+ "title": "Gruppo staffa CAX-IF",
+ "subtitle": "Assieme di prova da file STEP (as1-oc-214)",
+ "up_axis_in_source": "z",
+ "parts": [
+  {
+   "key": "p11",
+   "role": "component",
+   "ref": "A"
+  },
+  {
+   "key": "p10",
+   "role": "component",
+   "ref": "B"
+  },
+  {
+   "key": "p18",
+   "role": "component",
+   "ref": "B"
+  },
+  {
+   "key": "p03",
+   "role": "component",
+   "ref": "C"
+  },
+  {
+   "key": "p04",
+   "role": "hardware",
+   "ref": "H1"
+  },
+  {
+   "key": "p06",
+   "role": "hardware",
+   "ref": "H1"
+  },
+  {
+   "key": "p08",
+   "role": "hardware",
+   "ref": "H1"
+  },
+  {
+   "key": "p12",
+   "role": "hardware",
+   "ref": "H1"
+  },
+  {
+   "key": "p14",
+   "role": "hardware",
+   "ref": "H1"
+  },
+  {
+   "key": "p16",
+   "role": "hardware",
+   "ref": "H1"
+  },
+  {
+   "key": "p05",
+   "role": "hardware",
+   "ref": "H2"
+  },
+  {
+   "key": "p07",
+   "role": "hardware",
+   "ref": "H2"
+  },
+  {
+   "key": "p09",
+   "role": "hardware",
+   "ref": "H2"
+  },
+  {
+   "key": "p13",
+   "role": "hardware",
+   "ref": "H2"
+  },
+  {
+   "key": "p15",
+   "role": "hardware",
+   "ref": "H2"
+  },
+  {
+   "key": "p17",
+   "role": "hardware",
+   "ref": "H2"
+  },
+  {
+   "key": "p01",
+   "role": "hardware",
+   "ref": "H2"
+  },
+  {
+   "key": "p02",
+   "role": "hardware",
+   "ref": "H2"
+  }
+ ],
+ "steps": [
+  {
+   "number": 1,
+   "caption_title": "Appoggiare la piastra (A)",
+   "caption_body": "Fori verso l’alto",
+   "actions": [
+    {
+     "type": "insert",
+     "keys": [
+      "p11"
+     ],
+     "direction": [
+      0,
+      1,
+      0
+     ],
+     "distance_factor": 2,
+     "loose": null,
+     "axis": null,
+     "angle_deg": null
+    }
+   ],
+   "closeup_keys": []
+  },
+  {
+   "number": 2,
+   "caption_title": "Posizionare le due staffe (B)",
+   "caption_body": "Allineare i fori delle staffe a quelli della piastra",
+   "actions": [
+    {
+     "type": "insert",
+     "keys": [
+      "p10",
+      "p18"
+     ],
+     "direction": [
+      0,
+      1,
+      0
+     ],
+     "distance_factor": 1.5,
+     "loose": null,
+     "axis": null,
+     "angle_deg": null
+    }
+   ],
+   "closeup_keys": []
+  },
+  {
+   "number": 3,
+   "caption_title": "Fissare le staffe con bulloni e dadi",
+   "caption_body": "3 bulloni per staffa, senza serrare",
+   "actions": [
+    {
+     "type": "fasten",
+     "keys": [
+      "p04",
+      "p06",
+      "p08",
+      "p05",
+      "p07",
+      "p09"
+     ],
+     "direction": null,
+     "distance_factor": null,
+     "loose": true,
+     "axis": null,
+     "angle_deg": null
+    },
+    {
+     "type": "fasten",
+     "keys": [
+      "p12",
+      "p14",
+      "p16",
+      "p13",
+      "p15",
+      "p17"
+     ],
+     "direction": null,
+     "distance_factor": null,
+     "loose": true,
+     "axis": null,
+     "angle_deg": null
+    }
+   ],
+   "closeup_keys": [
+    "p04",
+    "p06",
+    "p08"
+   ]
+  },
+  {
+   "number": 4,
+   "caption_title": "Inserire l’asta (C) nei fori delle staffe",
+   "caption_body": "",
+   "actions": [
+    {
+     "type": "insert",
+     "keys": [
+      "p03"
+     ],
+     "direction": [
+      1,
+      0,
+      0
+     ],
+     "distance_factor": 1.2,
+     "loose": null,
+     "axis": null,
+     "angle_deg": null
+    }
+   ],
+   "closeup_keys": []
+  },
+  {
+   "number": 5,
+   "caption_title": "Bloccare l’asta con i due dadi",
+   "caption_body": "Poi serrare tutti i bulloni",
+   "actions": [
+    {
+     "type": "fasten",
+     "keys": [
+      "p01",
+      "p02"
+     ],
+     "direction": null,
+     "distance_factor": null,
+     "loose": false,
+     "axis": null,
+     "angle_deg": null
+    },
+    {
+     "type": "tighten",
+     "keys": [
+      "p04",
+      "p06",
+      "p08",
+      "p12",
+      "p14",
+      "p16"
+     ],
+     "direction": null,
+     "distance_factor": null,
+     "loose": null,
+     "axis": null,
+     "angle_deg": null
+    }
+   ],
+   "closeup_keys": []
+  }
+ ],
+ "final_caption_title": "Montaggio completato",
+ "final_caption_body": "Assieme di prova CAX-IF"
+}
