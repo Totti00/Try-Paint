@@ -1,0 +1,15 @@
+# Non servono nell'immagine Docker (le dipendenze si installano dentro il container).
+node_modules
+lavori
+config
+.git
+.gitignore
+.gitattributes
+.dockerignore
+Dockerfile
+*.log
+.DS_Store
+Thumbs.db
+avvia-windows.bat
+avvia-mac.command
+avvia-linux.sh

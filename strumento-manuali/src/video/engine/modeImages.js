@@ -124,6 +124,41 @@ export async function createEngine({ cfg, theme, stage }) {
   }
 
   // ----------------------------------------------------------------- componenti e ferramenta
+  /** elenco a due colonne (sigla, nome, quantità) quando nessun elemento ha un'immagine: niente riquadri vuoti */
+  const listScene = (title, sub, items, row, maxPer = 12) => {
+    const nPages = Math.ceil(items.length / maxPer);
+    const pages = chunk(items, Math.ceil(items.length / nPages));
+    pages.forEach((page, pi) => {
+      const root = el('div');
+      const head = el('div', 'sec-head', `<div class="bar"></div><h2>${esc(title)}</h2><div class="sub">${esc(sub)}${pages.length > 1 ? ` · ${pi + 1}/${pages.length}` : ''}</div>`);
+      root.appendChild(head);
+      const cols = page.length > 4 ? 2 : 1;
+      const perCol = Math.ceil(page.length / cols);
+      const gap = 22, top = 270, avail = 1080 - top - 110;
+      const rh = Math.min(118, (avail - (perCol - 1) * gap) / perCol);
+      const cw = cols === 2 ? (1728 - 48) / 2 : 1100;
+      const x0 = cols === 2 ? 96 : (SW - cw) / 2;
+      const rows = page.map((it, i) => {
+        const c = Math.floor(i / perCol), r = i % perCol;
+        const e = el('div', 'lrow', row(it));
+        Object.assign(e.style, { left: (x0 + c * (cw + 48)) + 'px', top: (top + r * (rh + gap)) + 'px', width: cw + 'px', height: rh + 'px' });
+        root.appendChild(e);
+        return e;
+      });
+      const sc = { kind: 'tiles', root, tiles: rows, head };
+      sc.layout = () => { for (const e of rows) { const nm = e.querySelector('.nm'); if (nm) fitText(nm, { maxW: nm.clientWidth, maxH: rh - 16, min: 24 }); } };
+      sc.update = (t) => {
+        head.style.transform = `translateY(${((1 - EASE.out(clamp01((t - sc.t0) / 0.8))) * 20).toFixed(1)}px)`;
+        rows.forEach((e, i) => {
+          const a = EASE.out(clamp01((t - sc.t0 - 0.3 - i * 0.09) / 0.5));
+          e.style.opacity = a.toFixed(3);
+          e.style.transform = `translateX(${((1 - a) * -24).toFixed(1)}px)`;
+        });
+      };
+      add(sc, Math.min(9, Math.max(4.5, 3.2 + 0.4 * page.length)));
+    });
+  };
+
   const tilesScene = (title, sub, items, render, maxPer = 8) => {
     const nPages = Math.ceil(items.length / maxPer);
     const pages = chunk(items, Math.ceil(items.length / nPages));
@@ -158,19 +193,31 @@ export async function createEngine({ cfg, theme, stage }) {
     });
   };
 
-  if ((M.components || []).length) {
-    tilesScene('Componenti', 'Verificare il contenuto della confezione', M.components, (c) => {
-      const u = imgUrl(c.image_id);
-      return `<div class="img${u ? '' : ' none'}">${u ? `<img src="${esc(u)}" alt="">` : ''}</div>` +
-        `<div class="foot"><div class="code">${esc(c.code)}</div><div class="nm">${esc(c.name)}</div><div class="q">${esc(qtyLabel(c.qty))}</div></div>`;
-    });
+  const comps = M.components || [];
+  if (comps.length) {
+    if (!comps.some((c) => imgUrl(c.image_id))) {
+      listScene('Componenti', 'Verificare il contenuto della confezione', comps, (c) =>
+        `<div class="code">${esc(c.code || '•')}</div><div class="nm">${esc(c.name)}</div><div class="q">${esc(qtyLabel(c.qty))}</div>`);
+    } else {
+      tilesScene('Componenti', 'Verificare il contenuto della confezione', comps, (c) => {
+        const u = imgUrl(c.image_id);
+        return `<div class="img${u ? '' : ' none'}">${u ? `<img src="${esc(u)}" alt="">` : `<span>${esc(c.code)}</span>`}</div>` +
+          `<div class="foot"><div class="code">${esc(c.code)}</div><div class="nm">${esc(c.name)}</div><div class="q">${esc(qtyLabel(c.qty))}</div></div>`;
+      });
+    }
   }
-  if ((M.hardware || []).length) {
-    tilesScene('Ferramenta in dotazione', 'Viti e accessori nella confezione', M.hardware, (h) => {
-      const u = imgUrl(h.image_id);
-      return `<div class="img${u ? '' : ' none'}">${u ? `<img src="${esc(u)}" alt="">` : ''}</div>` +
-        `<div class="foot"><div class="nm">${esc(h.name)}${h.spec ? `<small>${esc(h.spec)}</small>` : ''}</div><div class="q">${esc(qtyLabel(h.qty))}</div></div>`;
-    });
+  const hws = M.hardware || [];
+  if (hws.length) {
+    if (!hws.some((h) => imgUrl(h.image_id))) {
+      listScene('Ferramenta in dotazione', 'Viti e accessori nella confezione', hws, (h) =>
+        `<div class="code">${esc(h.id || '•')}</div><div class="nm">${esc(h.name)}${h.spec ? `<small>${esc(h.spec)}</small>` : ''}</div><div class="q">${esc(qtyLabel(h.qty))}</div>`);
+    } else {
+      tilesScene('Ferramenta in dotazione', 'Viti e accessori nella confezione', hws, (h) => {
+        const u = imgUrl(h.image_id);
+        return `<div class="img${u ? '' : ' none'}">${u ? `<img src="${esc(u)}" alt="">` : `<span>${esc(h.id || '')}</span>`}</div>` +
+          `<div class="foot"><div class="nm">${esc(h.name)}${h.spec ? `<small>${esc(h.spec)}</small>` : ''}</div><div class="q">${esc(qtyLabel(h.qty))}</div></div>`;
+      });
+    }
   }
 
   // ----------------------------------------------------------------- passi
@@ -180,7 +227,31 @@ export async function createEngine({ cfg, theme, stage }) {
   phases.forEach((p, i) => { const first = Math.min(...p.step_numbers); phaseOf.set(first, { ...p, index: i }); });
   const stepScenes = [];
   const CAP_H = 236;          // altezza fissa del pannello didascalia (stage px)
-  const AREA = { x: 96, y: 150, w: 1728, h: SH - 64 - CAP_H - 34 - 150 };
+  const CAP_TOP = SH - 64 - CAP_H;
+  const WARN_GAP = 16;        // avvertenza appena sopra la didascalia
+  const AREA = { x: 96, y: 124, w: 1728, h: CAP_TOP - 26 - 124 };
+  const CPS = 16;             // velocità di lettura (caratteri al secondo) per la durata dei passi
+  let lastFigure = null;      // immagini dell'ultimo passo illustrato (per i passi senza figura)
+
+  /** schede delle immagini nell'area data: 1, 2 affiancate, oppure a coppie in sequenza */
+  const placeFigures = (root, ims, area) => {
+    const cards = [], groups = [];
+    const half = { ...area, w: (area.w - 40) / 2 };
+    if (ims.length === 1) {
+      cards.push(placeCard(root, ims[0], area, { pad: 18 }));
+      groups.push([0]);
+    } else {
+      chunk(ims, 2).forEach((pair) => {
+        const idx = [];
+        if (pair.length === 1) { cards.push(placeCard(root, pair[0], area, { pad: 18 })); idx.push(cards.length - 1); } else {
+          cards.push(placeCard(root, pair[0], half, { pad: 18 })); idx.push(cards.length - 1);
+          cards.push(placeCard(root, pair[1], { ...half, x: area.x + half.w + 40 }, { pad: 18 })); idx.push(cards.length - 1);
+        }
+        groups.push(idx);
+      });
+    }
+    return { cards, groups };
+  };
 
   steps.forEach((s, si) => {
     const ph = phases.length >= 2 ? phaseOf.get(s.number) : null;
@@ -198,60 +269,62 @@ export async function createEngine({ cfg, theme, stage }) {
     const root = el('div');
     const ims = (s.image_ids || []).map(getImg).filter(Boolean);
     const paras = (s.paragraphs || []).filter((p) => strip(p));
-    const bodyFull = paras.join(' ');
-    const body = shorten(bodyFull, 128);
-    const warn = s.warning ? shorten(s.warning, 150) : null;
-    let cards = [];
-    let groups = [];
-    if (ims.length === 1) {
-      cards = [placeCard(root, ims[0], AREA)];
+    // testo completo (diviso in pagine nella didascalia, mai tagliato); l'avvertenza va nel suo riquadro
+    const body = paras.join(' ').replace(/\s+/g, ' ').trim();
+    const warn = s.warning ? String(s.warning).replace(/\s+/g, ' ').trim() : null;
+    const area = warn ? { ...AREA, h: AREA.h - 92 } : AREA;   // spazio per l'avvertenza sopra la didascalia
+    const uses = (s.uses || []).map((u) => {
+      const c = compByCode.get(u.ref), h = hwById.get(u.ref);
+      if (c) return { img: imgUrl(c.image_id), code: c.code, name: c.name, q: qtyLabel(u.qty), comp: true };
+      if (h) return { img: imgUrl(h.image_id), code: h.id, name: h.name, spec: h.spec, q: qtyLabel(u.qty) };
+      return { code: u.ref, name: '', q: qtyLabel(u.qty) };
+    });
+    let cards = [], groups = [], usesInPanel = true, dimmed = false;
+    if (ims.length) {
+      ({ cards, groups } = placeFigures(root, ims, area));
+      lastFigure = ims;
+    } else if (uses.length) {
+      // nessuna figura: l'occorrente del passo in grande (al posto di una scheda che ripete la didascalia)
+      const occ = el('div', 'occ');
+      const cols = uses.length > 3 ? 2 : 1;
+      occ.innerHTML = `<h3>Occorrente per il passo ${esc(s.number)}</h3><div class="occ-grid" style="grid-template-columns:repeat(${cols},1fr)">` +
+        uses.map((u) => `<div class="occ-item">${u.img ? `<div class="ph"><img src="${esc(u.img)}" alt=""></div>` : `<div class="code">${esc(u.code || '•')}</div>`}` +
+          `<div class="nm">${esc(u.name || u.code || '')}${u.spec ? `<small>${esc(u.spec)}</small>` : ''}</div><div class="q">${esc(u.q || '')}</div></div>`).join('') + '</div>';
+      const ow = cols === 2 ? 1500 : 1000;
+      Object.assign(occ.style, { left: (area.x + (area.w - ow) / 2) + 'px', top: area.y + 'px', width: ow + 'px', maxHeight: area.h + 'px' });
+      occ.dataset.center = '1';
+      root.appendChild(occ);
+      cards = [occ];
       groups = [[0]];
-    } else if (ims.length === 2) {
-      const half = { ...AREA, w: (AREA.w - 40) / 2 };
-      cards = [placeCard(root, ims[0], half), placeCard(root, ims[1], { ...half, x: AREA.x + half.w + 40 })];
-      groups = [[0, 1]];
-    } else if (ims.length > 2) {
-      // a coppie, in sequenza
-      const half = { ...AREA, w: (AREA.w - 40) / 2 };
-      chunk(ims, 2).forEach((pair, gi) => {
-        const idx = [];
-        if (pair.length === 1) { cards.push(placeCard(root, pair[0], AREA)); idx.push(cards.length - 1); }
-        else {
-          cards.push(placeCard(root, pair[0], half)); idx.push(cards.length - 1);
-          cards.push(placeCard(root, pair[1], { ...half, x: AREA.x + half.w + 40 })); idx.push(cards.length - 1);
-        }
-        groups.push(idx);
-      });
+      usesInPanel = false;     // già in grande: la colonna "Occorrente" della didascalia lascerebbe un doppione
+    } else if (lastFigure) {
+      // né figura né pezzi: resta la figura del passo precedente, attenuata (il testo è nella didascalia)
+      ({ cards, groups } = placeFigures(root, lastFigure, area));
+      for (const c of cards) c.classList.add('dimmed');
+      groups = [cards.map((_, i) => i)];
+      dimmed = true;
     } else {
-      // nessuna immagine: scheda di testo
-      const tc = el('div', 'textcard', `<div class="bignum">${esc(s.number)}</div><div class="paras">${paras.map((p) => `<p>${markup(shorten(p, 260))}</p>`).join('') || `<p>${esc(s.title)}</p>`}</div>`);
-      const tw = Math.min(AREA.w, 1500);
-      Object.assign(tc.style, { left: (AREA.x + (AREA.w - tw) / 2) + 'px', top: AREA.y + 'px', width: tw + 'px', maxHeight: AREA.h + 'px' });
+      // nessuna figura disponibile: grande numero del passo, il testo resta solo nella didascalia
+      const tc = el('div', 'stepnum', `<div class="bignum">${esc(s.number)}</div><div class="lbl">Passo ${esc(s.number)} di ${steps.length}</div>`);
+      Object.assign(tc.style, { left: area.x + 'px', top: area.y + 'px', width: area.w + 'px', height: area.h + 'px' });
       root.appendChild(tc);
-      tc.dataset.center = '1';
       cards = [tc];
       groups = [[0]];
     }
-    const uses = (s.uses || []).map((u) => {
-      const c = compByCode.get(u.ref), h = hwById.get(u.ref);
-      if (c) return { code: c.code, name: c.name, q: qtyLabel(u.qty) };
-      if (h) return { img: imgUrl(h.image_id), code: h.id, name: h.name, q: qtyLabel(u.qty) };
-      return { code: u.ref, name: '', q: qtyLabel(u.qty) };
-    });
-    const chars = strip(s.title).length + strip(body).length + (warn ? strip(warn).length * 0.8 : 0);
-    let dur = 2.9 + chars * 0.038 + (warn ? 1.2 : 0) + (groups.length > 1 ? 1.6 * (groups.length - 1) : 0);
-    dur = Math.max(4, Math.min(groups.length > 1 ? 11 : 9, dur));
+    // durata: tempo di lettura del testo completo (più l'avvertenza), con un minimo per guardare la figura
+    const chars = strip(s.title).length + strip(body).length + (warn ? strip(warn).length : 0);
+    let dur = 2.6 + chars / CPS + (warn ? 0.8 : 0) + (groups.length > 1 ? 1.2 * (groups.length - 1) : 0);
+    dur = Math.max(4.5, Math.min(30, dur));
     const sc = {
       kind: 'step', root, cards, groups, step: s, si,
-      item: { id: 's' + si, kind: 'step', n: s.number, title: s.title, body, uses },
+      item: { id: 's' + si, kind: 'step', n: s.number, title: s.title, body, uses: usesInPanel ? uses : [] },
       warn,
     };
     sc.layout = () => {
-      if (!ims.length) {
-        const pe = root.querySelector('.paras');
-        fitText(pe, { maxW: pe.clientWidth, maxH: AREA.h - 112, min: 24 });
-        const tc = root.querySelector('.textcard');
-        tc.style.top = Math.round(AREA.y + Math.max(0, (AREA.h - tc.offsetHeight) / 2)) + 'px';
+      const occ = root.querySelector('.occ');
+      if (occ) {
+        for (const nm of occ.querySelectorAll('.nm')) fitText(nm, { maxW: nm.clientWidth, maxH: 2 * 44, min: 26 });
+        occ.style.top = Math.round(area.y + Math.max(0, (area.h - occ.offsetHeight) / 2)) + 'px';
       }
     };
     sc.update = (t) => {
@@ -265,8 +338,8 @@ export async function createEngine({ cfg, theme, stage }) {
         const lu = ng === 1 ? u : prog(t, g0, g1);
         for (const ci of g) {
           const c = cards[ci];
-          c.style.opacity = a.toFixed(3);
-          if (ims.length) c.style.transform = `translate(${(dir * (-8 + 16 * lu)).toFixed(2)}px, ${(4 - 8 * lu).toFixed(2)}px) scale(${(1.0 + 0.04 * lu).toFixed(4)})`;
+          c.style.opacity = (a * (dimmed ? 0.32 : 1)).toFixed(3);
+          if (ims.length || dimmed) c.style.transform = `translate(${(dir * (-8 + 16 * lu)).toFixed(2)}px, ${(4 - 8 * lu).toFixed(2)}px) scale(${(1.0 + 0.04 * lu).toFixed(4)})`;
           else c.style.transform = `translateY(${((1 - EASE.out(clamp01((t - sc.t0) / 0.8))) * 20).toFixed(1)}px)`;
         }
       });

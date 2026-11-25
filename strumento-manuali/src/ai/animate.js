@@ -16,6 +16,7 @@ import { callStructuredDetailed, AiError } from './client.js';
 import { repairPlan } from './repair.js';
 import { appendJobLog, formatInt } from './log.js';
 import { loadPrompt } from './extract.js';
+import { writeJsonAtomic } from '../fsutil.js';
 
 const MAX_VIEWS = 40;
 
@@ -36,10 +37,7 @@ async function readJsonIf(file) {
 }
 
 async function writeJson(file, data) {
-  await fs.mkdir(path.dirname(file), { recursive: true });
-  const tmp = `${file}.${process.pid}.tmp`;
-  await fs.writeFile(tmp, JSON.stringify(data, null, 2) + '\n', 'utf8');
-  await fs.rename(tmp, file);
+  await writeJsonAtomic(file, data);
 }
 
 const r1 = (v) => (Number.isFinite(v) ? Math.round(v * 10) / 10 : v);

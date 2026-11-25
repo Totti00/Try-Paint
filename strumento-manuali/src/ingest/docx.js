@@ -6,6 +6,7 @@ import mammoth from 'mammoth';
 import {
   IngestError, makeProgress, imageId, ensureDir, writeJson, relPath,
   decodeToCanonical, pixelHash, writeRawPng,
+  throwIfAborted,
 } from './common.js';
 
 const MIN_SIDE = 24;
@@ -101,7 +102,7 @@ function continueNumbering(html) {
 /**
  * @returns {Promise<{kind:'docx', catalog:Array, pages:[], html:string, pdfPath:null, warnings:string[]}>}
  */
-export async function ingestDocx(jobDir, inputPath, onProgress) {
+export async function ingestDocx(jobDir, inputPath, onProgress, { signal } = {}) {
   const progress = makeProgress(onProgress);
   const outDir = await ensureDir(path.join(jobDir, 'estratte'));
   const warnings = [];
@@ -139,6 +140,7 @@ export async function ingestDocx(jobDir, inputPath, onProgress) {
   for (const m of result.messages || []) {
     if (m.type === 'error') warnings.push(`Word: ${m.message}`);
   }
+  throwIfAborted(signal);
   progress(40, 'Testo letto, conversione delle immagini…');
 
   let html = result.value || '';
@@ -150,13 +152,14 @@ export async function ingestDocx(jobDir, inputPath, onProgress) {
   const replacement = new Map(); // n -> testo che sostituisce il tag
   for (let k = 0; k < order.length; k++) {
     const n = order[k];
+    throwIfAborted(signal);
     if (replacement.has(n)) continue;
     const item = pending[n];
     progress(40 + (k / Math.max(1, order.length)) * 55, `Immagine ${k + 1} di ${order.length}…`);
     const type = (item?.contentType || '').toLowerCase();
     if (VECTOR_UNSUPPORTED.test(type) || /emf|wmf/.test(type)) {
       const fmt = /emf/.test(type) ? 'EMF' : 'WMF';
-      warnings.push(`Un'immagine in formato ${fmt} (grafica vettoriale di Office) non è supportata ed è stata saltata: se serve, salvala come PNG o JPG nel documento.`);
+      warnings.push(`Un’immagine in formato ${fmt} (grafica vettoriale di Office) non è supportata ed è stata saltata: se serve, salvala come PNG o JPG nel documento.`);
       replacement.set(n, `[immagine ${fmt} non supportata]`);
       continue;
     }
@@ -165,7 +168,7 @@ export async function ingestDocx(jobDir, inputPath, onProgress) {
       const buf = await item.read();
       canon = await decodeToCanonical(buf);
     } catch (err) {
-      warnings.push(`Un'immagine (${type || 'tipo sconosciuto'}) non è leggibile ed è stata saltata.`);
+      warnings.push(`Un’immagine (${type || 'tipo sconosciuto'}) non è leggibile ed è stata saltata.`);
       replacement.set(n, '[immagine non leggibile]');
       continue;
     }

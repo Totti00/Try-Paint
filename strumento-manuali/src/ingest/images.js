@@ -8,7 +8,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
-import { makeProgress, ensureDir } from './common.js';
+import { makeProgress, ensureDir, throwIfAborted } from './common.js';
 
 const NEAR_WHITE = 245;      // sfondo considerato "quasi bianco" se ogni canale ≥ 245
 const CONTENT_DELTA = 12;    // dopo lo sbiancamento, un pixel è contenuto se un canale < 255-12
@@ -133,10 +133,10 @@ export async function prepareOne(srcFile, finalFile, thumbFile) {
 }
 
 /**
- * prepareImages(jobDir, catalog, onProgress) → { prepared, warnings }
+ * prepareImages(jobDir, catalog, onProgress, { signal }?) → { prepared, warnings }
  * (il contratto prevede void: il valore di ritorno è solo informativo)
  */
-export async function prepareImages(jobDir, catalog, onProgress) {
+export async function prepareImages(jobDir, catalog, onProgress, { signal } = {}) {
   const progress = makeProgress(onProgress);
   const dOrig = await ensureDir(path.join(jobDir, 'immagini', 'orig'));
   const dFinal = await ensureDir(path.join(jobDir, 'immagini', 'final'));
@@ -145,6 +145,7 @@ export async function prepareImages(jobDir, catalog, onProgress) {
   const warnings = [];
   const prepared = {};
   for (let i = 0; i < list.length; i++) {
+    throwIfAborted(signal);
     const entry = list[i];
     progress((i / Math.max(1, list.length)) * 100, `Preparazione immagine ${i + 1} di ${list.length}…`);
     const src = path.join(jobDir, entry.file);

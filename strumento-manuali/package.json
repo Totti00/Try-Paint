@@ -4,11 +4,12 @@
   "private": true,
   "description": "Da un manuale di montaggio (PDF o Word) a un PDF impaginato professionalmente e a un video di montaggio, con Claude.",
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": { "node": ">=22.13" },
   "scripts": {
     "start": "node server.js",
     "setup": "npm install && npx playwright install chromium",
-    "test": "node test/run-all.js"
+    "test": "node test/run-all.js",
+    "test:server": "node test/test-server.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.13.0",

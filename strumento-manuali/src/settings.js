@@ -15,6 +15,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { writeFileAtomic } from './fsutil.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -123,12 +124,9 @@ async function readRaw() {
 async function writeRaw(obj) {
   const file = settingsPath();
   await fs.mkdir(path.dirname(file), { recursive: true });
-  const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
-  await fs.writeFile(tmp, JSON.stringify(obj, null, 2) + '\n', { encoding: 'utf8', mode: 0o600 });
   try {
-    await fs.rename(tmp, file);
+    await writeFileAtomic(file, JSON.stringify(obj, null, 2) + '\n', { mode: 0o600 });
   } catch (err) {
-    await fs.rm(tmp, { force: true }).catch(() => {});
     throw new SettingsError(`Impossibile salvare le impostazioni (${file}): ${err?.message || err}`, { code: 'settings_write', cause: err });
   }
   await fs.chmod(file, 0o600).catch(() => {}); // solo il proprietario può leggere la chiave (dove il sistema lo consente)

@@ -1,11 +1,12 @@
 // model3d.js — import dei modelli 3D e viste delle parti per Claude.
 //
-//   importModel(jobDir, modelPath, onProgress, { upAxis:'auto'|'y'|'z' }?) -> { glbPath, parts, meta }
+//   importModel(jobDir, modelPath, onProgress, { upAxis:'auto'|'y'|'z', signal }?) -> { glbPath, parts, meta }
 //     Formati: .step .stp .iges .igs (occt-import-js, WASM), .glb .gltf, .obj, .stl.
 //     Scrive <jobDir>/model.glb (un nodo per parte: nome = key, extras = { key, name, similar_group }),
 //     <jobDir>/parts.json (PartsSummary, array) e <jobDir>/model.meta.json (unità, asse verticale scelto
 //     e motivo, dimensioni: parts.json resta un array come da contratto).
-//   renderPartViews(jobDir, parts, { max: 24 }) -> [{ key, label, file, path, keys }]
+//   renderPartViews(jobDir, parts, { max: 24, signal }) -> [{ key, label, file, path, keys }]
+//   signal (AbortSignal, facoltativo): annullando si chiude il browser e si lancia un AbortError.
 //     PNG 640x480 in <jobDir>/viste_parti/: vista d'insieme + un gruppo di parti identiche per vista
 //     (parti in arancio, resto "fantasma", riquadro di dettaglio per i pezzi piccoli).
 //
@@ -41,19 +42,33 @@ function cleanError(e) {
   return new Error(msg);
 }
 
-async function withPage({ jobDir, extraMounts = [], uploadAllow, log }, fn) {
+function abortError(what) {
+  const e = new Error(`${what} annullata.`);
+  e.name = 'AbortError';
+  e.code = 'cancelled';
+  return e;
+}
+
+async function withPage({ jobDir, extraMounts = [], uploadAllow, log, signal, what = 'Operazione' }, fn) {
+  if (signal?.aborted) throw abortError(what);
   const server = await startServer({
     mounts: [...standardMounts(), { prefix: '/job/', dir: jobDir }, ...extraMounts],
     upload: { dir: jobDir, allow: uploadAllow },
   });
   let browser = null;
+  // annullando si chiude subito il browser: la pagina smette di lavorare (e di scrivere nella cartella del lavoro)
+  const onAbort = () => { if (browser) browser.close().catch(noop); server.close().catch(noop); };
+  signal?.addEventListener('abort', onAbort, { once: true });
   try {
     browser = await launchBrowser({ needWebGL: true });
+    if (signal?.aborted) throw abortError(what);
     const { page } = await openPage(browser, `${server.base}/engine/import.html`, { width: 800, height: 600, log });
     return await fn(page, server);
   } catch (e) {
+    if (signal?.aborted) throw abortError(what);
     throw cleanError(e);
   } finally {
+    signal?.removeEventListener('abort', onAbort);
     if (browser) await browser.close().catch(noop);
     await server.close().catch(noop);
   }
@@ -64,7 +79,7 @@ async function withPage({ jobDir, extraMounts = [], uploadAllow, log }, fn) {
  * @param {string} jobDir
  * @param {string} modelPath   file 3D (di solito <jobDir>/modello/<file>)
  * @param {(pct:number, msg:string)=>void} [onProgress]
- * @param {{ upAxis?: 'auto'|'y'|'z', log?: (s:string)=>void }} [options]
+ * @param {{ upAxis?: 'auto'|'y'|'z', log?: (s:string)=>void, signal?: AbortSignal }} [options]
  */
 export async function importModel(jobDir, modelPath, onProgress, options = {}) {
   const progress = safeProgress(onProgress);
@@ -86,6 +101,8 @@ export async function importModel(jobDir, modelPath, onProgress, options = {}) {
     extraMounts: [{ prefix: '/src/', dir: srcDir }],
     uploadAllow: (name) => name === 'model.glb',
     log: options.log,
+    signal: options.signal,
+    what: 'Lettura del modello 3D',
   }, async (page) => {
     await page.exposeFunction('__progress', (pct, msg) => progress(pct * 0.97, msg));
     const url = '/src/' + encodeURIComponent(path.basename(abs));
@@ -95,6 +112,7 @@ export async function importModel(jobDir, modelPath, onProgress, options = {}) {
       timeout, 'l’import del modello 3D');
   });
 
+  if (options.signal?.aborted) throw abortError('Lettura del modello 3D');
   const glbPath = path.join(jobDir, 'model.glb');
   if (!existsSync(glbPath)) throw new Error('Il modello normalizzato (model.glb) non è stato scritto.');
   await fsp.writeFile(path.join(jobDir, 'parts.json'), JSON.stringify(result.parts, null, 2) + '\n');
@@ -107,7 +125,7 @@ export async function importModel(jobDir, modelPath, onProgress, options = {}) {
  * Viste PNG per riconoscere le parti.
  * @param {string} jobDir
  * @param {object[]} [parts]  PartsSummary (se assente si legge parts.json)
- * @param {{ max?: number, width?: number, height?: number, theme?: object, onProgress?: Function }} [opts]
+ * @param {{ max?: number, width?: number, height?: number, theme?: object, onProgress?: Function, signal?: AbortSignal }} [opts]
  */
 export async function renderPartViews(jobDir, parts, opts = {}) {
   const { max = 24, width = 640, height = 480, theme = null } = opts;
@@ -124,6 +142,8 @@ export async function renderPartViews(jobDir, parts, opts = {}) {
     jobDir,
     uploadAllow: (name) => name.startsWith(dir + '/') && /^[\w.\-/]+\.png$/.test(name) && name.split('/').length === 2,
     log: opts.log,
+    signal: opts.signal,
+    what: 'Preparazione delle viste delle parti',
   }, async (page) => {
     await page.exposeFunction('__progress', (pct, msg) => progress(pct, msg));
     return withTimeout(page.evaluate((o) => window.renderViews(o), {

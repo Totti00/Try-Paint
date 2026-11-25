@@ -15,6 +15,7 @@ import { ManualData } from '../schema.js';
 import { callStructuredDetailed, AiError } from './client.js';
 import { repairManual } from './repair.js';
 import { appendJobLog } from './log.js';
+import { writeJsonAtomic } from '../fsutil.js';
 
 const PROMPTS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'prompts');
 const MAX_IMAGE_BLOCKS = 90;        // l'API accetta fino a 100 immagini per richiesta: margine di sicurezza
@@ -49,10 +50,7 @@ function makeProgress(onProgress) {
 const exists = (f) => fs.access(f).then(() => true, () => false);
 
 async function writeJson(file, data) {
-  await fs.mkdir(path.dirname(file), { recursive: true });
-  const tmp = `${file}.${process.pid}.tmp`;
-  await fs.writeFile(tmp, JSON.stringify(data, null, 2) + '\n', 'utf8');
-  await fs.rename(tmp, file);
+  await writeJsonAtomic(file, data);
 }
 
 // ------------------------------------------------------------------------------------- ingest da disco

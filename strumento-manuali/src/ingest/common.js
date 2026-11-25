@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import sharp from 'sharp';
+import { writeJsonAtomic } from '../fsutil.js';
 
 /** Errore con messaggio italiano per l'utente; `code` serve a chi lo intercetta. */
 export class IngestError extends Error {
@@ -36,10 +37,16 @@ export async function ensureDir(dir) {
 
 /** Scrittura atomica di un JSON (file temporaneo + rename). */
 export async function writeJson(file, data) {
-  await ensureDir(path.dirname(file));
-  const tmp = `${file}.${process.pid}.tmp`;
-  await fs.writeFile(tmp, JSON.stringify(data, null, 2) + '\n', 'utf8');
-  await fs.rename(tmp, file);
+  await writeJsonAtomic(file, data);
+}
+
+/** Interrompe la lettura se l'operazione è stata annullata (signal di un AbortController). */
+export function throwIfAborted(signal) {
+  if (signal?.aborted) {
+    const err = new IngestError('Operazione annullata.', { code: 'cancelled' });
+    err.name = 'AbortError';
+    throw err;
+  }
 }
 
 /** Percorso relativo alla cartella del lavoro, sempre con "/" (anche su Windows). */

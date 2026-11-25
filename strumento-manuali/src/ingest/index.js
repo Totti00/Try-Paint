@@ -1,16 +1,18 @@
 // Ingest del documento caricato: PDF (pdf.js) o Word .docx (mammoth).
-// ingestDocument(jobDir, inputPath, onProgress) → { kind, catalog, pages, html, pdfPath, warnings }
+// ingestDocument(jobDir, inputPath, onProgress, { signal }?) → { kind, catalog, pages, html, pdfPath, warnings, scanned }
+// signal (AbortSignal, facoltativo): annullando, la lettura si ferma alla pagina/immagine successiva (errore AbortError).
 // Scrive estratte/img_XX.png, estratte/catalog.json (ImageCatalog), estratte/text.json.
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { IngestError, sniffFile } from './common.js';
+import { IngestError, sniffFile, throwIfAborted } from './common.js';
 import { ingestPdf } from './pdf.js';
 import { ingestDocx } from './docx.js';
 
 export { IngestError } from './common.js';
 export { prepareImages } from './images.js';
 
-export async function ingestDocument(jobDir, inputPath, onProgress) {
+export async function ingestDocument(jobDir, inputPath, onProgress, { signal } = {}) {
+  throwIfAborted(signal);
   if (!jobDir || !inputPath) throw new IngestError('ingestDocument: cartella del lavoro e file sono obbligatori.', { code: 'bad_args' });
   let stat;
   try {
@@ -23,11 +25,11 @@ export async function ingestDocument(jobDir, inputPath, onProgress) {
   const ext = path.extname(inputPath).toLowerCase();
   const sniff = await sniffFile(inputPath);
 
-  if (sniff === 'pdf') return ingestPdf(jobDir, inputPath, onProgress);
+  if (sniff === 'pdf') return ingestPdf(jobDir, inputPath, onProgress, { signal });
   if (sniff === 'zip') {
     if (ext === '.odt') throw new IngestError('I documenti OpenDocument (.odt) non sono supportati: salvalo come Word (.docx) o esportalo in PDF.', { code: 'unsupported_odt' });
     if (ext === '.pages') throw new IngestError('I documenti Pages non sono supportati: esportalo in Word (.docx) o in PDF.', { code: 'unsupported_pages' });
-    if (ext === '.docm' || ext === '.dotx' || ext === '.docx' || ext === '') return ingestDocx(jobDir, inputPath, onProgress);
+    if (ext === '.docm' || ext === '.dotx' || ext === '.docx' || ext === '') return ingestDocx(jobDir, inputPath, onProgress, { signal });
     throw new IngestError(`Tipo di file non supportato (${ext || 'senza estensione'}): carica un PDF o un documento Word (.docx).`, { code: 'unsupported' });
   }
   if (sniff === 'cfb') {

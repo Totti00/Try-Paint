@@ -1,0 +1,4 @@
+# Fine riga corrette per gli script di avvio (Windows vuole CRLF, macOS/Linux LF).
+*.bat     text eol=crlf
+*.command text eol=lf
+*.sh      text eol=lf

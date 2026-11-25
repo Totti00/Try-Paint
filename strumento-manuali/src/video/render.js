@@ -15,6 +15,7 @@ import path from 'node:path';
 import { ManualData, AnimationPlan } from '../schema.js';
 import { startServer, standardMounts } from './server.js';
 import { launchBrowser, openPage, startEncoder, runFfmpeg } from './browser.js';
+import { renameWithRetry } from '../fsutil.js';
 
 export const QUALITIES = {
   '1080p': { width: 1920, height: 1080, fps: 30, crf: 20, jpeg: 92, preset: 'medium' },
@@ -138,6 +139,7 @@ export async function renderVideo(jobDir, opts = {}) {
   const videoPath = path.join(outDir, 'video.mp4');
   const posterPath = path.join(outDir, 'poster.jpg');
   const tmpVideo = path.join(outDir, `video.tmp-${process.pid}-${Date.now()}.mp4`);
+  const tmpPoster = path.join(outDir, `poster.tmp-${process.pid}-${Date.now()}.jpg`);
 
   let browser = null;
   const encoders = [];
@@ -206,8 +208,10 @@ export async function renderVideo(jobDir, opts = {}) {
 
     progress(98, 'Immagine di anteprima…');
     await first.page.evaluate((t) => window.renderAt(t), info.posterTime || 0);
-    await fsp.writeFile(posterPath, await first.page.screenshot({ type: 'jpeg', quality: 90 }));
-    await fsp.rename(tmpVideo, videoPath);
+    // copertina in un file temporaneo, rinominata solo dopo il video: in caso di errore restano coerenti
+    await fsp.writeFile(tmpPoster, await first.page.screenshot({ type: 'jpeg', quality: 90 }));
+    await renameWithRetry(tmpVideo, videoPath);
+    await renameWithRetry(tmpPoster, posterPath).catch((e) => { if (log) log('[video] copertina non aggiornata: ' + (e?.message || e)); });
     const secs = (Date.now() - t0) / 1000;
     progress(100, `Video pronto (${Math.round(info.duration)} s, generato in ${Math.round(secs)} s)`);
     return {
@@ -220,5 +224,6 @@ export async function renderVideo(jobDir, opts = {}) {
     await server.close().catch(noop);
     for (const f of segFiles) await fsp.rm(f, { force: true }).catch(noop);
     await fsp.rm(tmpVideo, { force: true }).catch(noop);
+    await fsp.rm(tmpPoster, { force: true }).catch(noop);
   }
 }

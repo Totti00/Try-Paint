@@ -1,7 +1,7 @@
 // test/test-video.js — prove del modulo video (import 3D, viste delle parti, video con immagini, video 3D).
 // Uso:  node test/test-video.js            (tutte le prove, ~3-4 min su 4 CPU senza GPU)
 //       node test/test-video.js immagini 3d step    (solo alcune)
-// Variabili: VIDEO_TEST_DIR = cartella di lavoro (predefinita: <tmp>/strumento-manuali/test-video)
+// Variabili: VIDEO_TEST_DIR = cartella di lavoro (altrimenti <MANUALI_TEST_DIR>/video, predefinita: <tmp>/strumento-manuali/test-video)
 //            REBUILD_FIXTURES=1 rigenera test/fixtures/tavolo-levante/tavolo-parametrico.glb dal
 //            modello parametrico di ../manuale-tavolo-levante/video/src/parts.js
 // Esce con codice 1 se una verifica fallisce. Stampa i percorsi dei provini (contact sheet) da guardare.
@@ -21,7 +21,8 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
 const FIX = path.join(HERE, 'fixtures');
 const REF = path.resolve(ROOT, '..', 'manuale-tavolo-levante');
-const OUT = path.resolve(process.env.VIDEO_TEST_DIR || path.join(os.tmpdir(), 'strumento-manuali', 'test-video'));
+const OUT = path.resolve(process.env.VIDEO_TEST_DIR ||
+  (process.env.MANUALI_TEST_DIR ? path.join(process.env.MANUALI_TEST_DIR, 'video') : path.join(os.tmpdir(), 'strumento-manuali', 'test-video')));
 const only = process.argv.slice(2);
 const want = (name) => !only.length || only.includes(name);
 

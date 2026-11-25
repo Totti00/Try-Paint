@@ -1,4 +1,4 @@
-// generatePdf(jobDir, manual, { outPath, theme, onProgress }) → outPath
+// generatePdf(jobDir, manual, { outPath, theme, onProgress, signal }) → outPath   (signal: AbortSignal facoltativo)
 // ManualData → HTML (template.js) → impaginazione automatica in Chromium (paginate.browser.js) → PDF A4
 // con i font Barlow incorporati. File di lavoro in <lavoro>/pdf-build/ (HTML, HTML impaginato, layout.json).
 import fs from 'node:fs/promises';
@@ -9,6 +9,7 @@ import { makeProgress, ensureDir, writeJson } from '../ingest/common.js';
 import { normalizeTheme, themeCss } from './theme.js';
 import { buildManualHtml } from './template.js';
 import { resolveImageFile, analyzeImage, prepareBackLogo } from './assets.js';
+import { renameWithRetry, tmpName } from '../fsutil.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FONTS_DIR = path.resolve(HERE, '..', '..', 'assets', 'fonts');
@@ -83,8 +84,10 @@ function zodMessage(error) {
   return (error?.issues || []).slice(0, 4).map((i) => `${(i.path || []).join('.') || 'radice'}: ${i.message}`).join('; ');
 }
 
-export async function generatePdf(jobDir, manual, { outPath, theme, onProgress } = {}) {
+export async function generatePdf(jobDir, manual, { outPath, theme, onProgress, signal } = {}) {
   const progress = makeProgress(onProgress);
+  const aborted = () => { if (signal?.aborted) { const e = new Error('Creazione del PDF annullata.'); e.name = 'AbortError'; throw e; } };
+  aborted();
   if (!jobDir) throw new Error('generatePdf: manca la cartella del lavoro.');
   const parsed = ManualData.safeParse(manual);
   if (!parsed.success) throw new Error(`La scheda del manuale non è valida (${zodMessage(parsed.error)}).`);
@@ -126,7 +129,11 @@ export async function generatePdf(jobDir, manual, { outPath, theme, onProgress }
   await fs.writeFile(htmlPath, html, 'utf8');
 
   progress(20, 'Avvio del motore di impaginazione…');
+  aborted();
   const browser = await launchChromium();
+  // annullando si chiude il browser: l'impaginazione o la stampa in corso si interrompono subito
+  const onAbort = () => { browser.close().catch(() => {}); };
+  signal?.addEventListener('abort', onAbort, { once: true });
   const pageErrors = [];
   try {
     const context = await browser.newContext({ viewport: { width: 1000, height: 1400 }, deviceScaleFactor: 1 });
@@ -136,16 +143,16 @@ export async function generatePdf(jobDir, manual, { outPath, theme, onProgress }
     await page.goto(pathToFileURL(htmlPath).href, { waitUntil: 'load', timeout: 180_000 });
     progress(35, 'Impaginazione automatica…');
     const report = await page.evaluate(() => window.__paginate());
-    if (pageErrors.length) throw new Error(`Errore durante l'impaginazione: ${pageErrors[0]}`);
+    if (pageErrors.length) throw new Error(`Errore durante l’impaginazione: ${pageErrors[0]}`);
     const missing = await page.evaluate(() => [...document.images].filter((i) => !i.naturalWidth).map((i) => i.getAttribute('src')));
     if (missing.length) throw new Error(`Immagini non caricate nel PDF: ${missing.map((s) => decodeURIComponent(s.split('/').pop())).join(', ')}`);
     await fs.writeFile(path.join(buildDir, 'manuale.impaginato.html'), await page.content(), 'utf8');
 
     progress(70, 'Stampa del PDF…');
-    const tmp = `${out}.${process.pid}.tmp`;
+    const tmp = tmpName(out);
     try {
       await page.pdf({ path: tmp, preferCSSPageSize: true, printBackground: true, tagged: true, timeout: 180_000 });
-      await fs.rename(tmp, out);
+      await renameWithRetry(tmp, out);
     } catch (err) {
       await fs.rm(tmp, { force: true }).catch(() => {});
       if (err?.code === 'EBUSY' || err?.code === 'EPERM') {
@@ -153,7 +160,7 @@ export async function generatePdf(jobDir, manual, { outPath, theme, onProgress }
       }
       throw err;
     }
-    if (report.overflow.length) warnings.push(`Impaginazione: ${report.overflow.length} elementi escono dall'area utile (vedi pdf-build/layout.json).`);
+    if (report.overflow.length) warnings.push(`Impaginazione: ${report.overflow.length} elementi escono dall’area utile (vedi pdf-build/layout.json).`);
     if (report.forced.length) warnings.push(`Impaginazione: blocchi troppo grandi anche ridotti: ${report.forced.join(', ')}.`);
     await writeJson(path.join(buildDir, 'layout.json'), {
       created_at: new Date().toISOString(), out, pages: report.pages.length, warnings,
@@ -162,7 +169,11 @@ export async function generatePdf(jobDir, manual, { outPath, theme, onProgress }
       ...report,
     });
     await context.close();
+  } catch (err) {
+    aborted();
+    throw err;
   } finally {
+    signal?.removeEventListener('abort', onAbort);
     await browser.close().catch(() => {});
   }
   progress(100, 'PDF pronto.');

@@ -457,7 +457,8 @@ export class Choreography {
       this.appear(p.key, t0);
       this.flash(p.key, t0, t0 + ds + 0.4);
     }
-    if (n >= 2) this.addTag(screws.map((s) => s.key), t0 + 0.2, t0 + ds + st * (n - 1) + 0.5, n, a);
+    const total = this.stepFasten ? this.stepFasten.total.get(this.tagRef(screws.map((s) => s.key))) || n : n;
+    if (n >= 2 || total > n) this.addTag(screws.map((s) => s.key), t0 + 0.2, t0 + ds + st * (n - 1) + 0.5, n, a);
     return ds + st * Math.max(0, n - 1) + 0.2;
   }
 
@@ -467,17 +468,45 @@ export class Choreography {
     return TIMING.highlight;
   }
 
-  addTag(keys, t0, t1, n, a) {
-    // testo: nome breve della ferramenta (dal riferimento del piano) + quantita'
+  /** riferimento della ferramenta (dal piano) comune a tutte le chiavi, '' se misto o assente */
+  tagRef(keys) {
     const refs = new Set(keys.map((k) => this.roleRef.get(k)).filter(Boolean));
+    return refs.size === 1 ? [...refs][0] : '';
+  }
+
+  /**
+   * Viti avvitate in tutto nel passo, per riferimento: se un passo fissa la stessa ferramenta in più azioni
+   * (es. un primo piano su 1 vite, poi le altre 5) le etichette contano sul totale del passo, non per azione.
+   */
+  prepareStepFasten(s) {
+    const total = new Map();
+    for (const a of s.actions || []) {
+      if (a.type !== 'fasten') continue;
+      const screws = (a.keys || []).map((k) => this.part(k)).filter((p) => p && this.isScrew(p));
+      if (!screws.length) continue;
+      const ref = this.tagRef(screws.map((p) => p.key));
+      total.set(ref, (total.get(ref) || 0) + screws.length);
+    }
+    this.stepFasten = { total, done: new Map() };
+  }
+
+  addTag(keys, t0, t1, n, a) {
+    // testo: nome breve della ferramenta (dal riferimento del piano) + quantita' (sul totale del passo)
+    const ref = this.tagRef(keys);
     let name = '';
-    if (refs.size === 1) {
-      const ref = [...refs][0];
+    if (ref) {
       const hw = (this.manual.hardware || []).find((h) => h.id === ref);
       if (hw) name = hw.name;
     }
     if (name.length > 24) name = name.slice(0, 23).trim() + '…';
-    this.tags.push({ keys, t0, t1, text: (name ? name + ' ' : '') + '×' + n });
+    const total = this.stepFasten?.total.get(ref) || n;
+    const done = this.stepFasten?.done.get(ref) || 0;
+    if (this.stepFasten) this.stepFasten.done.set(ref, done + n);
+    let text;
+    if (total <= n) text = (name ? name + ' ' : '') + '×' + n;                         // tutte in una volta
+    else if (done === 0) text = (name ? name + ' ' : '') + '×' + n + ' di ' + total;    // prima azione: «×1 di 6»
+    else text = (name ? name + ': ' : '') + 'ancora ' + n;                              // seguenti: «ancora 5»
+    this.tags.push({ keys, t0, t1, text });
   }
 
   // ------------------------------------------------------------------------------- coreografia
@@ -529,6 +558,7 @@ export class Choreography {
     this.stepWindows = [];
     for (const s of numbered) {
       const s0 = T;
+      this.prepareStepFasten(s);
       const closeKeys = new Set((s.closeup_keys || []).filter((k) => this.part(k)));
       let cur = s0 + (this.mounted.size ? TIMING.lead : 0.5);   // scena vuota: si parte subito
       let prevClose = false;

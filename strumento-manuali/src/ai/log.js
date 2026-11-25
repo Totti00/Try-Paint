@@ -2,6 +2,7 @@
 // Mai segreti nel registro: qui arrivano solo messaggi già puliti (nessuna chiave API).
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { writeJsonAtomic } from '../fsutil.js';
 
 // useGrouping 'always': "3.200" (l'italiano di ICU di suo non raggruppa i numeri di 4 cifre).
 const fmtInt = new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0, useGrouping: 'always' });
@@ -34,10 +35,7 @@ export function recordUsage(jobDir, record) {
       if (Array.isArray(parsed)) list = parsed;
     } catch { /* file assente o rovinato: si riparte */ }
     list.push({ at: new Date().toISOString(), ...record });
-    const tmp = `${file}.${process.pid}.tmp`;
-    await fs.mkdir(jobDir, { recursive: true });
-    await fs.writeFile(tmp, JSON.stringify(list, null, 2) + '\n', 'utf8');
-    await fs.rename(tmp, file);
+    await writeJsonAtomic(file, list);
   }).catch(() => {});
   usageQueue = run;
   return run;

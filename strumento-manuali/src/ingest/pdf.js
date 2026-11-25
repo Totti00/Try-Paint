@@ -5,7 +5,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import {
-  IngestError, makeProgress, imageId, ensureDir, writeJson, relPath,
+  IngestError, makeProgress, imageId, ensureDir, writeJson, relPath, throwIfAborted,
   canonicalPixels, pixelHash, writeRawPng,
 } from './common.js';
 
@@ -102,7 +102,7 @@ function pageText(tc) {
 /**
  * @returns {Promise<{kind:'pdf', catalog:Array, pages:Array<{page:number,text:string}>, html:null, pdfPath:string, warnings:string[], scanned:boolean}>}
  */
-export async function ingestPdf(jobDir, inputPath, onProgress) {
+export async function ingestPdf(jobDir, inputPath, onProgress, { signal } = {}) {
   const progress = makeProgress(onProgress);
   const { lib, dir } = await loadPdfjs();
   const { OPS, ImageKind, AnnotationMode } = lib;
@@ -152,6 +152,7 @@ export async function ingestPdf(jobDir, inputPath, onProgress) {
     const numPages = doc.numPages;
     if (!numPages) throw new IngestError('Il PDF non contiene pagine.', { code: 'pdf_empty' });
     for (let p = 1; p <= numPages; p++) {
+      throwIfAborted(signal);
       progress(2 + (p - 1) / numPages * 95, `Lettura della pagina ${p} di ${numPages}…`);
       let page;
       try {
@@ -227,11 +228,12 @@ export async function ingestPdf(jobDir, inputPath, onProgress) {
       let indexOnPage = 0;
       let pageHasBig = false;
       for (const pl of placements) {
+        throwIfAborted(signal);
         let img;
         try {
           img = pl.inline ?? await getObject(page, pl.objId);
         } catch (err) {
-          warnings.push(`Pagina ${p}: un'immagine non è stata decodificata (${err?.message || err}).`);
+          warnings.push(`Pagina ${p}: un’immagine non è stata decodificata (${err?.message || err}).`);
           continue;
         }
         if (!img) continue;
@@ -275,6 +277,7 @@ export async function ingestPdf(jobDir, inputPath, onProgress) {
         ? 'Il PDF sembra una scansione: Claude leggerà le pagine come immagini.'
         : 'Il PDF non contiene testo selezionabile né immagini riconoscibili: Claude leggerà le pagine come immagini.');
     }
+    throwIfAborted(signal);
     progress(98, `Trovate ${catalog.filter((c) => !c.duplicate_of).length} immagini su ${numPages} pagine.`);
     await writeJson(path.join(outDir, 'catalog.json'), catalog);
     await writeJson(path.join(outDir, 'text.json'), { kind: 'pdf', pages, warnings, scanned, big_image_pages: bigImagePages });

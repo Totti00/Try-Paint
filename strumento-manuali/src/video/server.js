@@ -10,6 +10,7 @@ import { createReadStream, createWriteStream, promises as fsp } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { renameWithRetry } from '../fsutil.js';
 
 const require = createRequire(import.meta.url);
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -95,7 +96,7 @@ export async function startServer({ mounts = [], memory = {}, upload = null } = 
         ws.on('finish', async () => {
           if (aborted) return;
           try {
-            await fsp.rename(tmp, dest);
+            await renameWithRetry(tmp, dest);
             uploads.push(name);
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ ok: true, bytes: size }));
