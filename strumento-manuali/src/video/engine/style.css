@@ -80,40 +80,41 @@ body.mode-immagini #gl, body.mode-immagini #ghost, body.mode-immagini #dim { dis
 #caption .seg.cur i { background: var(--accent); }
 #caption .count {
   font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700;
-  font-size: 26px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-a80); white-space: nowrap;
+  font-size: 28px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-a80); white-space: nowrap;
 }
 #caption .count em { font-style: normal; color: var(--accent); }
 #caption .uses {
-  flex: 0 0 420px; border-left: 2px solid var(--line); padding: 24px 30px 20px 28px;
+  /* larga quanto i nomi, tra 500 e 640 px (oltre: puntini), così il testo del passo resta ampio */
+  flex: 0 0 auto; min-width: 500px; max-width: 640px; border-left: 2px solid var(--line); padding: 24px 30px 20px 28px;
   display: flex; flex-direction: column; gap: 10px; justify-content: center;
 }
 #caption .uses h4 {
-  font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-size: 22px;
+  font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-size: 26px;
   letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
 }
-#caption .use { display: flex; align-items: center; gap: 14px; min-height: 44px; }
+#caption .use { display: flex; align-items: center; gap: 14px; min-height: 46px; }
 #caption .use .ph { flex: 0 0 52px; height: 44px; background: #fff; display: flex; align-items: center; justify-content: center; }
 #caption .use .ph img { max-width: 46px; max-height: 40px; }
 #caption .use .code {
   flex: 0 0 auto; min-width: 52px; text-align: center; background: var(--ink); color: #fff;
-  font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 28px; line-height: 1; padding: 8px 8px 7px;
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 32px; line-height: 1; padding: 7px 8px 6px;
 }
-#caption .use .nm { flex: 1; font-weight: 500; font-size: 25px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#caption .use .q { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 34px; color: var(--accent); }
+#caption .use .nm { flex: 1; font-weight: 600; font-size: 32px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#caption .use .q { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 38px; color: var(--accent); }
 
-/* avvertenza (in alto a destra) */
+/* avvertenza: appena sopra la didascalia (bottom impostato da modeImages.js secondo l'altezza del pannello) */
 #warn {
-  position: absolute; right: 96px; top: 46px; max-width: 1060px;
+  position: absolute; left: 96px; bottom: 316px; max-width: 1728px;
   display: flex; align-items: stretch; background: var(--ink); color: #fff;
   box-shadow: 0 10px 30px rgba(31, 28, 26, 0.18);
 }
 #warn .tag {
   flex: 0 0 auto; background: var(--accent); display: flex; align-items: center; gap: 12px;
-  padding: 0 22px; font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 800; font-size: 26px;
+  padding: 0 24px; font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 800; font-size: 32px;
   letter-spacing: 0.12em; text-transform: uppercase;
 }
-#warn .tag svg { width: 30px; height: 30px; }
-#warn .msg { padding: 14px 26px 14px 22px; font-weight: 500; font-size: 28px; line-height: 1.22; }
+#warn .tag svg { width: 34px; height: 34px; }
+#warn .msg { padding: 14px 28px 14px 24px; font-weight: 500; font-size: 34px; line-height: 1.22; }
 
 /* ---------------------------------------------------------------- etichette parti (3D) */
 #leaders { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: visible; }
@@ -192,12 +193,47 @@ body.mode-immagini #gl, body.mode-immagini #ghost, body.mode-immagini #dim { dis
 .tile .nm small { display: block; font-weight: 500; font-size: 23px; color: var(--muted); margin-top: 3px; }
 .tile .q { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 54px; color: var(--accent); flex: 0 0 auto; }
 
-/* scheda di testo per i passi senza immagini */
-.textcard { position: absolute; background: #fff; box-shadow: 0 22px 60px rgba(31, 28, 26, 0.13); padding: 56px 70px; display: flex; gap: 56px; align-items: flex-start; }
-.textcard .bignum { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 220px; line-height: 0.8; color: var(--accent); flex: 0 0 auto; }
-.textcard .paras { font-weight: 500; font-size: 40px; line-height: 1.32; color: var(--text); }
-.textcard .paras p + p { margin-top: 20px; }
-.textcard .paras strong { color: var(--ink); font-weight: 700; }
+/* elenco a due colonne (componenti / ferramenta senza immagini) */
+.lrow {
+  position: absolute; display: flex; align-items: center; gap: 28px; padding: 0 34px 0 22px;
+  background: #fff; box-shadow: 0 10px 30px rgba(31, 28, 26, 0.08);
+}
+.lrow .code {
+  flex: 0 0 auto; min-width: 96px; text-align: center; background: var(--ink); color: #fff;
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 50px; line-height: 1; padding: 10px 14px 9px;
+}
+.lrow .nm { flex: 1; min-width: 0; font-weight: 600; font-size: 42px; line-height: 1.1; }
+.lrow .nm small { display: block; font-weight: 500; font-size: 32px; color: var(--muted); margin-top: 2px; }
+.lrow .q { flex: 0 0 auto; font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 64px; color: var(--accent); }
+
+/* passo senza figura: l'occorrente del passo in grande */
+.occ { position: absolute; background: #fff; box-shadow: 0 22px 60px rgba(31, 28, 26, 0.13); padding: 38px 48px 30px; overflow: hidden; }
+.occ h3 {
+  font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-size: 36px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--ink-a80); border-bottom: 5px solid var(--accent); padding-bottom: 14px; margin-bottom: 8px;
+}
+.occ-grid { display: grid; column-gap: 56px; }
+.occ-item { display: flex; align-items: center; gap: 24px; min-height: 104px; padding: 10px 0; border-bottom: 1px solid var(--ink-a10); }
+.occ-item .ph { flex: 0 0 130px; height: 96px; background: var(--beige-soft); display: flex; align-items: center; justify-content: center; }
+.occ-item .ph img { max-width: 118px; max-height: 86px; }
+.occ-item .code {
+  flex: 0 0 auto; min-width: 92px; text-align: center; background: var(--ink); color: #fff;
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 46px; line-height: 1; padding: 10px 12px 9px;
+}
+.occ-item .nm { flex: 1; min-width: 0; font-weight: 600; font-size: 42px; line-height: 1.1; }
+.occ-item .nm small { display: block; font-weight: 500; font-size: 32px; color: var(--muted); }
+.occ-item .q { flex: 0 0 auto; font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 62px; color: var(--accent); }
+
+/* passo senza figura né pezzi, prima di qualsiasi figura: grande numero del passo */
+.stepnum { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.stepnum .bignum { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 380px; line-height: 0.8; color: var(--accent); }
+.stepnum .lbl {
+  margin-top: 34px; font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-size: 40px;
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-a62);
+}
+
+/* figura del passo precedente, attenuata (passo senza figura propria) */
+.card.dimmed { filter: grayscale(0.7); }
 
 /* fase */
 .phase { position: absolute; left: 112px; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; }

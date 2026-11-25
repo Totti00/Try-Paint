@@ -629,7 +629,11 @@ async function importModelStep(task, { main = false, from = 0, to = 100 } = {}) 
       part_count: meta.part_count ?? imp.parts.length,
       group_count: meta.group_count ?? null,
       size_text: meta.size_text || null,
-      views: views.map((v) => ({ key: v.key, label: v.label, name: path.basename(String(v.file || v.path)), keys: Array.isArray(v.keys) ? v.keys.slice(0, 400) : [] })),
+      views: views.map((v) => ({
+        key: v.key, label: v.label, name: path.basename(String(v.file || v.path)),
+        ui_name: v.ui_file ? path.basename(String(v.ui_file)) : null, // stessa vista senza l'etichetta destinata a Claude (per l'interfaccia)
+        keys: Array.isArray(v.keys) ? v.keys.slice(0, 400) : [],
+      })),
       imported_at: nowIso(),
       plan_sig: null,
     };

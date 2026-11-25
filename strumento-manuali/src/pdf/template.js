@@ -87,7 +87,17 @@ export function buildManualHtml(manual, ctx) {
     if (hardware.length) {
       const g = hwGrid(hardware.length);
       blocks.push(`<div class="blk blk-sec" data-keep><h2 class="sec"><span class="sec-n">${'ABC'[letter++]}</span>Ferramenta in dotazione</h2></div>`);
-      for (const row of chunk(hardware, g.cols)) {
+      // nessuna figura (es. Word con immagini EMF saltate): elenco compatto invece di riquadri vuoti
+      if (!hardware.some((h) => img(h.image_id))) {
+        for (const row of chunk(hardware, 2)) {
+          const items = row.map((h) => {
+            const q = qtyText(h.qty);
+            return `<div class="li"><span class="code${h.id ? '' : ' none'}">${esc(typo(h.id || ''))}</span><p><b>${inline(h.name)}</b>${h.spec ? `<span>${inline(h.spec)}</span>` : ''}</p>${q ? `<span class="qty-inline">${q}</span>` : '<span></span>'}</div>`;
+          }).join('');
+          blocks.push(`<div class="blk list-row">${items}</div>`);
+        }
+      }
+      else for (const row of chunk(hardware, g.cols)) {
         const cards = row.map((h) => {
           const im = img(h.image_id);
           const chip = hardwareChip(h);
@@ -105,7 +115,16 @@ export function buildManualHtml(manual, ctx) {
     if (components.length) {
       const g = compGrid(components.length);
       blocks.push(`<div class="blk blk-sec" data-keep><h2 class="sec"><span class="sec-n">${'ABC'[letter++]}</span>Componenti</h2></div>`);
-      for (const row of chunk(components, g.cols)) {
+      if (!components.some((c) => img(c.image_id))) {
+        for (const row of chunk(components, 2)) {
+          const items = row.map((c) => {
+            const q = qtyText(c.qty);
+            return `<div class="li"><span class="code">${esc(typo(c.code))}</span><p><b>${inline(c.name)}</b></p>${q ? `<span class="qty-inline">${q}</span>` : '<span></span>'}</div>`;
+          }).join('');
+          blocks.push(`<div class="blk list-row">${items}</div>`);
+        }
+      }
+      else for (const row of chunk(components, g.cols)) {
         const cards = row.map((c) => {
           const im = img(c.image_id);
           const q = qtyText(c.qty);

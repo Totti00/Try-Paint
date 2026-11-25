@@ -6,7 +6,8 @@ Applicazione web locale (Node ≥ 22.13 — richiesto da pdfjs-dist 6.5 —, ESM
 3. mostra la scheda in una pagina di **revisione** modificabile;
 4. genera un **PDF impaginato** professionale (stile del manuale "Tavolo Levante" in `../manuale-tavolo-levante/`);
 5. genera un **video di montaggio**: 3D se c'è il modello (piano dell'animazione scritto da Claude), altrimenti
-   "video con immagini" (le figure del manuale animate con didascalie).
+   "video con immagini" (le figure del manuale animate con didascalie: il testo completo di ogni passo, diviso in pagine
+   di 2 righe, e un passo dura quanto serve per leggerlo; senza figure: elenchi, occorrente del passo o figura precedente).
 
 Contratti dati: **`src/schema.js`** (zod) — `ManualData`, `AnimationPlan`; `ImageCatalog` e `PartsSummary` descritti lì.
 Fixture di riferimento (scritta a mano, NON output di Claude): `test/fixtures/tavolo-levante/manual.json` + PDF originale.
@@ -20,6 +21,7 @@ avvia-windows.bat, avvia-mac.command, avvia-linux.sh   avvio per l'utente: contr
 Dockerfile                immagine facoltativa (node:22-bookworm-slim + Chromium; HOST=0.0.0.0, porta 3210)
 src/schema.js             contratti dati (zod)
 src/jobs.js               archivio lavori su disco + eventi di avanzamento
+src/fsutil.js             scritture sicure anche su Windows: temporanei con nome unico (UUID), rename con nuovi tentativi
 src/settings.js           impostazioni locali (config/settings.json: chiave API, modello, tema)
 src/ingest/               lettura documenti: pdf.js (PDF), mammoth (DOCX), sharp (immagini)
 src/ai/                   chiamate a Claude: client, estrazione ManualData, piano animazione
@@ -28,8 +30,9 @@ src/video/                import modelli 3D (occt-import-js per STEP/IGES), moto
 public/                   interfaccia web (HTML/CSS/JS senza framework)
 assets/fonts/             Barlow (OFL) — usato da PDF, video e interfaccia
 test/                     test automatici e fixture
-lavori/                   (git-ignored) un lavoro per cartella
-config/settings.json      (git-ignored) chiave API e preferenze
+lavori/                   (git-ignored) un lavoro per cartella; lavori/.server.lock = copia dello strumento attiva (pid, porta);
+                          lavori/.caricamenti/ = file in arrivo (svuotata all'avvio)
+config/                   (git-ignored per intero) settings.json con chiave API e preferenze, e sue copie (.rovinato-*, .tmp)
 ```
 
 ## Cartella di un lavoro: `lavori/<id>/`
@@ -45,6 +48,7 @@ immagini/thumb/<id>.jpg   miniature (lato lungo ≤ 360 px) per l'interfaccia
 manual.ai.json            ManualData come restituito da Claude (non modificato)
 manual.json               ManualData corrente (modificato dall'utente nella revisione)
 model.glb + parts.json    modello normalizzato (Y in alto, mm, a terra, centrato) + PartsSummary
+viste_parti/<k>.png       viste delle parti con l'etichetta per Claude (nomi del CAD, misure) + <k>.ui.png senza etichetta (interfaccia)
 plan.json                 AnimationPlan (video 3D)
 out/manuale.pdf           PDF generato
 out/video.mp4, out/poster.jpg
@@ -85,18 +89,28 @@ Campi aggiuntivi scritti da `server.js`/`src/jobs.js` (tutti facoltativi per chi
   (`stage`: `estrazione`|`immagini`|`analisi`|`pdf`|`modello`|`piano`|`render`; `eta_s` solo durante il rendering del video);
 - `error` = `{ task, message, code, params, at }` oppure `null` (`code: 'interrupted'` se il programma è stato chiuso a metà);
 - `outputs.pdf_at`, `outputs.pdf_pages`, `outputs.video_at`, `video_quality`, `video_duration`;
+- `outputs.pdf_manual_at` / `outputs.video_manual_at` = `manual_saved_at` della scheda letta dall'operazione (all'inizio):
+  se `manual_saved_at` è più recente, il PDF/video è stato fatto con una versione precedente e l'interfaccia lo segnala
+  (anche se la scheda è stata salvata mentre l'operazione era in corso). Per i lavori più vecchi si usa `pdf_at`/`video_at`;
 - `warnings` = `{ ingest:[], images:[], pdf:[], video:[], model:[] }` (avvisi da mostrare all’utente);
 - `cost` = `{ usd, text, calls, approx, items:[{label, usd, text}] }` dalla somma di `ai-usage.json` (null in modalità test);
 - `test_mode`, `analysed_at`, `manual_saved_at`, `thumb` (id immagine per la miniatura), `review.verified` (indici delle
   `changes` con «ho verificato»), `scanned` (PDF senza testo, letto come immagini: da `ingestDocument`);
 - `model3d` = `{ status:'nessuno'|'in_coda'|'importazione'|'pronto'|'errore', pct, message, error, file, up_axis_requested,
-  up_axis, up_axis_reason, part_count, group_count, size_text, views:[{key,label,name}], imported_at, plan_sig }`
+  up_axis, up_axis_reason, part_count, group_count, size_text, views:[{key,label,name,ui_name,keys,ref_label}], imported_at, plan_sig }`
+  (`views[].ui_name` = vista senza etichetta per l'interfaccia; `ref_label` = «F1 · Fianco ×2» quando il piano dell'animazione
+  ha abbinato le parti alle sigle del manuale)
   (`plan_sig` = firma di scheda+modello dell’ultimo `plan.json`: se non cambia, il piano si riusa senza chiamare Claude).
 
 Le operazioni pesanti passano da **una sola coda sequenziale** in `server.js`: `analisi` (ingestDocument + prepareImages +
 extractManual), `pdf` (generatePdf), `video` (3D: importModel se serve + renderPartViews + planAnimation se serve, poi
 renderVideo) e `modello` (importModel + renderPartViews in sottofondo, a priorità più bassa delle azioni dell’utente).
-All’avvio i lavori rimasti "in corso" passano a `errore` con «Riprova».
+All’avvio, solo dopo aver verificato che non ci sia un'altra copia attiva (risposta su `PORT`, poi `lavori/.server.lock`) e
+dopo aver ottenuto la porta, si svuota `lavori/.caricamenti`, i lavori rimasti "in corso" passano a `errore` con «Riprova»
+e si tolgono le cartelle di lavori senza `job.json` (resti di cancellazioni). Una seconda copia apre il browser su quella
+già attiva ed esce senza toccare nulla. Annulla e Cancella fermano anche la lettura del documento (a ogni pagina/immagine)
+e la lettura del modello 3D (si chiude il browser); se un'operazione non si ferma entro 20 s, la cartella si toglie quando
+finisce. Errori imprevisti (anche fuori dalle richieste) finiscono nella console e nel registro, senza fermare lo strumento.
 
 ## Interfacce dei moduli (tutte `async`, ESM)
 
@@ -104,15 +118,15 @@ All’avvio i lavori rimasti "in corso" passano a `errore` con «Riprova».
 
 | Modulo | Funzione | Note |
 |---|---|---|
-| `src/ingest/index.js` | `ingestDocument(jobDir, inputPath, onProgress) → { kind:'pdf'\|'docx', catalog, pages:[{page, text}], html:string\|null, pdfPath:string\|null, warnings:string[], scanned:boolean }` | scrive `estratte/` e `catalog.json`; per DOCX `pdfPath` è null e `html` contiene il testo con segnaposto `[[img_XX]]` nell'ordine del documento |
-| `src/ingest/images.js` | `prepareImages(jobDir, catalog, onProgress) → { prepared, warnings }` | scrive `immagini/final` e `immagini/thumb` |
+| `src/ingest/index.js` | `ingestDocument(jobDir, inputPath, onProgress, { signal }?) → { kind:'pdf'\|'docx', catalog, pages:[{page, text}], html:string\|null, pdfPath:string\|null, warnings:string[], scanned:boolean }` | scrive `estratte/` e `catalog.json`; per DOCX `pdfPath` è null e `html` contiene il testo con segnaposto `[[img_XX]]` nell'ordine del documento |
+| `src/ingest/images.js` | `prepareImages(jobDir, catalog, onProgress, { signal }?) → { prepared, warnings }` | scrive `immagini/final` e `immagini/thumb` |
 | `src/ai/client.js` | `callStructured({ system, content, schema, maxTokens, effort, onProgress }) → parsed` | streaming, fallback lato server, gestione refusal/max_tokens/errori con messaggi italiani |
 | `src/ai/extract.js` | `extractManual(jobDir, ingestResult, onProgress) → ManualData` | scrive `manual.ai.json` e `manual.json`; valida con zod e ripara riferimenti a immagini inesistenti |
 | `src/ai/animate.js` | `planAnimation(jobDir, manual, parts, onProgress, { views, signal }?) → AnimationPlan` | scrive `plan.json`; `views` = viste delle parti da allegare |
-| `src/pdf/generate.js` | `generatePdf(jobDir, manual, { outPath, theme, onProgress }) → outPath` | usa `immagini/final/*`; impaginazione automatica nel browser; scrive `pdf-build/layout.json` (pagine + `warnings`) |
-| `src/video/model3d.js` | `importModel(jobDir, modelPath, onProgress, { upAxis:'auto'\|'y'\|'z' }?) → { glbPath, parts, meta }` | scrive `model.glb`, `parts.json`, `model.meta.json` |
-| `src/video/model3d.js` | `renderPartViews(jobDir, parts, { max: 24, theme }) → [{ key, label, file, path, keys }]` | immagini PNG (vista d'insieme + ogni gruppo di parti evidenziato) da dare a Claude per riconoscere i pezzi |
-| `src/video/render.js` | `renderVideo(jobDir, { mode:'3d'\|'immagini', manual, plan, glbPath, quality:'1080p'\|'720p'\|'anteprima', theme, onProgress, signal }) → { videoPath, posterPath, duration, warnings, … }` | Playwright + three.js + ffmpeg-static (`src/video/index.js` riesporta tutto) |
+| `src/pdf/generate.js` | `generatePdf(jobDir, manual, { outPath, theme, onProgress, signal }) → outPath` | usa `immagini/final/*`; impaginazione automatica nel browser; scrive `pdf-build/layout.json` (pagine + `warnings`) |
+| `src/video/model3d.js` | `importModel(jobDir, modelPath, onProgress, { upAxis:'auto'\|'y'\|'z', signal, log }?) → { glbPath, parts, meta }` | scrive `model.glb`, `parts.json`, `model.meta.json` |
+| `src/video/model3d.js` | `renderPartViews(jobDir, parts, { max: 24, theme, onProgress, signal }) → [{ key, label, file, path, keys, ui_file, ui_path }]` | immagini PNG (vista d'insieme + ogni gruppo di parti evidenziato) da dare a Claude per riconoscere i pezzi; `ui_*` = stessa vista senza etichetta |
+| `src/video/render.js` | `renderVideo(jobDir, { mode:'3d'\|'immagini', manual, plan, glbPath, quality:'1080p'\|'720p'\|'anteprima', theme, onProgress, signal }) → { videoPath, posterPath, duration, chapters, tags, warnings, … }` | Playwright + three.js + ffmpeg-static (`src/video/index.js` riesporta tutto) |
 | `src/jobs.js` | `createJob({name,inputName})`, `listJobs()`, `getJob(id)`, `updateJob(id, patch\|fn, {lazy})`, `deleteJob(id)`, `appendLog(id,msg)`, `jobDir(id)`, `jobPath(id,...seg)`, `markInterrupted()`, `events` (EventEmitter: `'update'` con job, `'deleted'` con id) | id = `AAAAMMGG-hhmmss-slug`; `jobPath` rifiuta segmenti che escono dalla cartella |
 | `src/settings.js` | `getSettings()`, `saveSettings(partial)`, `getApiKey()` | chiave da `config/settings.json` o `ANTHROPIC_API_KEY` |
 
@@ -155,9 +169,18 @@ GET  /api/jobs/:id/files/:name          manuale.pdf | video.mp4 | poster.jpg —
 GET  /api/jobs/:id/log                  log.txt (?download=1)
 ```
 
-Sicurezza: il server ascolta su 127.0.0.1 (variabile `HOST` per cambiarlo, es. Docker); id dei lavori, nomi dei file e id
-delle immagini passano da whitelist (niente path traversal); le richieste che modificano qualcosa con `Origin`/`Sec-Fetch-Site`
-di un altro sito sono rifiutate (403); la chiave API non lascia mai il server.
+Sicurezza: il server ascolta su 127.0.0.1 (variabile `HOST` per cambiarlo, es. Docker) e non ha password. Prima di tutto
+(anche dei file statici) controlla l'intestazione `Host`: sono accettati solo `localhost`, `127.0.0.1`, `[::1]` (qualsiasi
+porta), `HOST` se è un nome preciso e i nomi in `MANUALI_ALLOWED_HOSTS` (elenco separato da virgole, per Docker o la rete
+locale); altrimenti 421 con un messaggio italiano (protezione dal "DNS rebinding"). Le richieste che modificano qualcosa con
+`Origin`/`Sec-Fetch-Site` di un altro sito, o con `Origin: null`, sono rifiutate (403). Id dei lavori, nomi dei file e id delle
+immagini passano da whitelist (niente path traversal); la chiave API non lascia mai il server. Errori 500: all'utente una frase
+italiana, i dettagli (con i percorsi) solo nella console e nel registro del lavoro. Docker: pubblicare la porta solo su
+127.0.0.1 (`-p 127.0.0.1:3210:3210`).
+
+Interfaccia: ogni scheda del browser tiene aperto un flusso SSE solo mentre è visibile (chiuso su `visibilitychange`/`pagehide`,
+riaperto e riallineato al ritorno): i browser concedono 6 connessioni per indirizzo e con più schede aperte le richieste
+resterebbero altrimenti in attesa.
 
 ## Regole comuni
 - Testi per l'utente in italiano; apostrofi tipografici (’), "×" nelle misure, virgola decimale.
@@ -174,6 +197,8 @@ di un altro sito sono rifiutate (403); la chiave API non lascia mai il server.
 - `MANUALI_TEST_DIR=/cartella` raccoglie le cartelle di lavoro di tutti i test (`server/`, `video/`, …; predefinita: la cartella
   temporanea di sistema).
 - `node test/run-all.js` (= `npm test`) esegue in fila tutti i `test/test-*.js` con un riepilogo; `test/test-server.js` prova
-  l'intera catena via HTTP in modalità test (caricamento, SSE, revisione, PDF, video con immagini e 3D, annullamento,
-  ripresa dopo la chiusura, path traversal).
+  l'intera catena via HTTP in modalità test (caricamento, SSE, revisione, salvataggi simultanei, PDF/video da rifare, video con
+  immagini e 3D, modello 3D rovinato, annullamento e cancellazione durante la lettura, doppio avvio, ripresa dopo la chiusura,
+  intestazione Host, path traversal); `test/test-ui.js` apre l'interfaccia in Chromium (pagina del video con il modello in
+  errore, telefono a 390 px, 7 schede aperte, errore «manca la chiave») e salva le schermate in `<MANUALI_TEST_DIR>/ui/schermate`.
 - `ANTHROPIC_BASE_URL` (letta dall'SDK) permette di puntare a un server finto nei test di `src/ai`.

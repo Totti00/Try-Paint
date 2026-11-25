@@ -651,8 +651,10 @@ async function renderViews({ glbUrl, parts: summary, max = 24, width = 640, heig
   const results = [];
   // vista d'insieme
   bg(); setStyles(null); drawGL(mainPose, 0, 0, W, H);
+  // copia senza etichetta per l'interfaccia (l'etichetta, con i nomi del CAD e le misure, serve solo a Claude)
+  const overviewUi = await save('00_insieme.ui.png');
   label('Vista d’insieme', `${plural(model.parts.length, 'parte', 'parti')}${model.parts.length > 1 ? `, ${groups.size} ${groups.size === 1 ? 'uguali' : 'diverse'}` : ''} · ${fmtMm(sizeAll.x)} × ${fmtMm(sizeAll.z)} × ${fmtMm(sizeAll.y)} mm`);
-  results.push({ key: 'overview', label: `Vista d’insieme (${plural(model.parts.length, 'parte', 'parti')})`, file: await save('00_insieme.png'), keys: model.parts.map((p) => p.key) });
+  results.push({ key: 'overview', label: `Vista d’insieme (${plural(model.parts.length, 'parte', 'parti')})`, file: await save('00_insieme.png'), ui_file: overviewUi, keys: model.parts.map((p) => p.key) });
 
   let n = 0;
   for (const gr of chosen) {
@@ -691,8 +693,9 @@ async function renderViews({ glbUrl, parts: summary, max = 24, width = 640, heig
     const s = gr.first.size;
     const qty = gr.count > 1 ? ` ×${gr.count}` : '';
     const nm = gr.first.name || gr.first.key;
+    const uiFile = await save(gr.first.key + '.ui.png');
     label(`${gr.first.key}${qty}  ‘${nm}’`, `${fmtMm(s.x)} × ${fmtMm(s.z)} × ${fmtMm(s.y)} mm` + (gr.count > 1 ? ' · parti: ' + gr.parts.map((p) => p.key).slice(0, 8).join(', ') + (gr.count > 8 ? '…' : '') : ''));
-    results.push({ key: gr.first.key, label: `${gr.first.key}${qty} ‘${nm}’`, file: await save(gr.first.key + '.png'), keys: gr.parts.map((p) => p.key) });
+    results.push({ key: gr.first.key, label: `${gr.first.key}${qty} ‘${nm}’`, file: await save(gr.first.key + '.png'), ui_file: uiFile, keys: gr.parts.map((p) => p.key) });
   }
   renderer.dispose();
   return results;

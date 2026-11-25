@@ -117,7 +117,7 @@ export async function renderStills(jobDir, opts, times, outDir) {
       await fsp.writeFile(f, await page.screenshot({ type: 'png' }));
       files.push(f);
     }
-    return { files, duration: info.duration, chapters: info.chapters, warnings: info.warnings };
+    return { files, duration: info.duration, chapters: info.chapters, tags: info.tags || [], warnings: info.warnings };
   } finally {
     if (browser) await browser.close().catch(noop);
     await server.close().catch(noop);
@@ -216,7 +216,7 @@ export async function renderVideo(jobDir, opts = {}) {
     progress(100, `Video pronto (${Math.round(info.duration)} s, generato in ${Math.round(secs)} s)`);
     return {
       videoPath, posterPath, duration: total / Q.fps, frames: total, width: Q.width, height: Q.height, fps: Q.fps,
-      workers: nWorkers, renderSeconds: secs, chapters: info.chapters, warnings: info.warnings || [],
+      workers: nWorkers, renderSeconds: secs, chapters: info.chapters, tags: info.tags || [], warnings: info.warnings || [],
     };
   } finally {
     for (const e of encoders) e.kill();

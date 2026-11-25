@@ -28,6 +28,8 @@ Lo strumento funziona sul tuo computer, nel browser. I tuoi file restano sul com
 | **Mac** | Doppio clic su **`avvia-mac.command`** (la prima volta: tasto destro sul file › **Apri** › **Apri**) |
 | **Linux** | Da terminale, nella cartella: **`./avvia-linux.sh`** |
 
+Se hai ricevuto lo strumento come file **ZIP**, prima **estrai tutto** (su Windows: tasto destro sullo ZIP › *Estrai tutto…*) e avvia lo script dalla cartella estratta: aperto dall’interno dello ZIP non funziona.
+
 La prima volta lo script scarica i componenti necessari (serve qualche minuto). Poi si apre il browser con lo strumento all’indirizzo **http://localhost:3210**.
 
 **Lascia aperta la finestra nera** mentre lavori: chiudendola si chiude lo strumento. Per riaprirlo, rifai doppio clic sullo script.
@@ -51,7 +53,7 @@ Nella pagina iniziale trascina il manuale (PDF o Word .docx) nel riquadro grande
 ### 2. Revisione
 - In alto trovi le **Modifiche fatte dall’AI**: quelle evidenziate in arancione vanno controllate sul documento originale; quando le hai controllate spunta **Ho verificato**.
 - Correggi testi, quantità, sigle e immagini. Le quantità si possono lasciare vuote se il documento non le indica.
-- Nei testi, scrivere `**parola**` la rende **evidenziata** (grassetto sottolineato) nel PDF.
+- Per **evidenziare** una parola (grassetto sottolineato nel PDF) selezionala e premi **Evidenzia** (oppure Ctrl+B): nel testo appare tra due asterischi, `**parola**`.
 - Clicca su un’immagine per sceglierne un’altra tra quelle estratte dal documento.
 - Premi **Salva** (oppure Ctrl+S). Il PDF e il video useranno esattamente questa scheda.
 
@@ -91,7 +93,9 @@ Ogni lavoro ha una cartella dentro `lavori/` (per esempio `lavori/20261124-15301
 - **Windows dice «Windows ha protetto il PC»** – premi *Ulteriori informazioni* › *Esegui comunque*.
 - **Il Mac dice che il file non si può aprire** – tasto destro su `avvia-mac.command` › *Apri* › *Apri*. Se dice «permesso negato», apri il Terminale nella cartella e scrivi `chmod +x avvia-mac.command`.
 - **Il browser non si apre** – aprilo tu e vai su **http://localhost:3210**.
-- **«La porta 3210 è occupata»** – lo strumento è forse già aperto in un’altra finestra: usa quella. Altrimenti chiudi il programma che usa la porta.
+- **«Strumento manuali è già aperto»** – lo strumento era già in funzione: si apre la scheda del browser con quello, e la nuova finestra si può chiudere.
+- **«La porta 3210 è occupata»** – un altro programma usa la porta: chiudilo, oppure avvia lo strumento su un’altra porta (variabile `PORT`, vedi sotto).
+- **«Mancano i file dello strumento accanto a questo script»** – lo script è stato aperto dall’interno del file ZIP: estrai tutto (tasto destro › *Estrai tutto…*) e riavvialo dalla cartella estratta.
 - **«Manca la chiave API», «chiave non valida», «credito esaurito»** – controlla la chiave in *Impostazioni* e il credito su console.anthropic.com, poi premi **Riprova**.
 - **PDF protetto da password** – rimuovi la protezione (per esempio stampandolo in un nuovo PDF) e ricaricalo.
 - **Documento Word vecchio (.doc)** – aprilo in Word e salvalo come `.docx`, oppure esportalo in PDF.
@@ -105,7 +109,8 @@ Ogni lavoro ha una cartella dentro `lavori/` (per esempio `lavori/20261124-15301
 ### Per chi è pratico di computer
 
 - Avvio manuale: `npm install`, `npx playwright install chromium`, poi `npm start`.
-- Variabili d’ambiente: `PORT` (3210), `HOST` (127.0.0.1: lo strumento è raggiungibile solo da questo computer), `NO_BROWSER=1`, `ANTHROPIC_API_KEY`, `MANUALI_JOBS_DIR`, `MANUALI_CONFIG_DIR`.
+- Variabili d’ambiente: `PORT` (3210), `HOST` (127.0.0.1: lo strumento è raggiungibile solo da questo computer), `NO_BROWSER=1`, `ANTHROPIC_API_KEY`, `MANUALI_JOBS_DIR`, `MANUALI_CONFIG_DIR`, `MANUALI_ALLOWED_HOSTS`.
+- **Sicurezza:** lo strumento non ha password. Risponde solo agli indirizzi `localhost`, `127.0.0.1` e `[::1]` (protezione dal «DNS rebinding»: le richieste con un altro nome nell’intestazione `Host` ricevono 421). Per usarlo da un altro computer della rete servono `HOST=0.0.0.0` e `MANUALI_ALLOWED_HOSTS=192.168.1.20,pc-ufficio.local` (nomi o indirizzi con cui lo si apre): in quel caso **chiunque nella rete** può vedere i manuali, cancellare i lavori e usare la chiave API. Fallo solo in una rete di cui ti fidi.
 - Test automatici (nessuna chiamata a Claude): `npm test`. Modalità di prova dell’interfaccia senza Claude: `MANUALI_AI_FIXTURE=test/fixtures/tavolo-levante/manual.json MANUALI_PLAN_FIXTURE=test/fixtures/tavolo-levante/plan.json npm start`.
-- Docker: `docker build -t strumento-manuali .` e `docker run -p 3210:3210 -v manuali-lavori:/app/lavori -v manuali-config:/app/config strumento-manuali`.
+- Docker: `docker build -t strumento-manuali .` e `docker run -p 127.0.0.1:3210:3210 -v manuali-lavori:/app/lavori -v manuali-config:/app/config strumento-manuali`, poi http://localhost:3210. Lascia `127.0.0.1:` davanti alla porta: con `-p 3210:3210` Docker la pubblica su tutte le interfacce di rete (vedi *Sicurezza* qui sopra).
 - Architettura, cartelle e API: [ARCHITETTURA.md](ARCHITETTURA.md).

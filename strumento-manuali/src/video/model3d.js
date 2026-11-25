@@ -5,7 +5,8 @@
 //     Scrive <jobDir>/model.glb (un nodo per parte: nome = key, extras = { key, name, similar_group }),
 //     <jobDir>/parts.json (PartsSummary, array) e <jobDir>/model.meta.json (unità, asse verticale scelto
 //     e motivo, dimensioni: parts.json resta un array come da contratto).
-//   renderPartViews(jobDir, parts, { max: 24, signal }) -> [{ key, label, file, path, keys }]
+//   renderPartViews(jobDir, parts, { max: 24, signal }) -> [{ key, label, file, path, keys, ui_file, ui_path }]
+//     file/path: PNG con l'etichetta (per Claude); ui_file/ui_path: la stessa vista senza etichetta (per l'interfaccia)
 //   signal (AbortSignal, facoltativo): annullando si chiude il browser e si lancia un AbortError.
 //     PNG 640x480 in <jobDir>/viste_parti/: vista d'insieme + un gruppo di parti identiche per vista
 //     (parti in arancio, resto "fantasma", riquadro di dettaglio per i pezzi piccoli).
@@ -150,5 +151,9 @@ export async function renderPartViews(jobDir, parts, opts = {}) {
       glbUrl: '/job/model.glb', parts, max: Math.max(1, Math.min(60, max | 0 || 24)), width, height, theme, dir,
     }), 15 * 60000, 'il disegno delle viste delle parti');
   });
-  return views.map((v) => ({ ...v, path: path.join(jobDir, ...v.file.split('/')) }));
+  return views.map((v) => ({
+    ...v,
+    path: path.join(jobDir, ...v.file.split('/')),
+    ui_path: v.ui_file ? path.join(jobDir, ...v.ui_file.split('/')) : null,
+  }));
 }

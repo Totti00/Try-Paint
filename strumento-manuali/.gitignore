@@ -1,5 +1,8 @@
 node_modules/
 lavori/
-config/settings.json
+# tutta la cartella: settings.json contiene la chiave API, e così le sue copie
+# (settings.json.rovinato-*, temporanei *.tmp di un salvataggio interrotto)
+config/
 *.log
 .DS_Store
+Thumbs.db

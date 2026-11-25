@@ -410,7 +410,8 @@ export class Choreography {
       this.flash(p.key, ts, ts + ds + 0.5);
       this.mounted.add(p.key);
     });
-    if (n >= 2) this.addTag(screws.map((s) => s.key), t0 + 0.3, t0 + ds + st * (n - 1) + 0.5, n, a);
+    // anche una vite sola ha l'etichetta se il passo ne avvita altre dello stesso tipo («×1 di 6», poi «ancora 5»)
+    if (n >= 2 || (n >= 1 && this.stepTotal('fasten', screws.map((s) => s.key), n) > n)) this.addTag(screws.map((s) => s.key), t0 + 0.3, t0 + ds + st * (n - 1) + 0.5, n, a);
     return ds + st * Math.max(0, n - 1) + (lone.length ? 0.2 * lone.length : 0) + 0.1;
   }
 
@@ -457,8 +458,7 @@ export class Choreography {
       this.appear(p.key, t0);
       this.flash(p.key, t0, t0 + ds + 0.4);
     }
-    const total = this.stepFasten ? this.stepFasten.total.get(this.tagRef(screws.map((s) => s.key))) || n : n;
-    if (n >= 2 || total > n) this.addTag(screws.map((s) => s.key), t0 + 0.2, t0 + ds + st * (n - 1) + 0.5, n, a);
+    if (n >= 2 || (n >= 1 && this.stepTotal('tighten', screws.map((s) => s.key), n) > n)) this.addTag(screws.map((s) => s.key), t0 + 0.2, t0 + ds + st * (n - 1) + 0.5, n, a);
     return ds + st * Math.max(0, n - 1) + 0.2;
   }
 
@@ -479,15 +479,22 @@ export class Choreography {
    * (es. un primo piano su 1 vite, poi le altre 5) le etichette contano sul totale del passo, non per azione.
    */
   prepareStepFasten(s) {
+    // conteggi separati per avvitatura e serraggio finale (le stesse viti possono comparire in entrambi)
     const total = new Map();
     for (const a of s.actions || []) {
-      if (a.type !== 'fasten') continue;
-      const screws = (a.keys || []).map((k) => this.part(k)).filter((p) => p && this.isScrew(p));
+      if (a.type !== 'fasten' && a.type !== 'tighten') continue;
+      const screws = (a.keys || []).map((k) => this.part(k))
+        .filter((p) => p && (this.isScrew(p) || (a.type === 'tighten' && this.screw.has(p.key))));
       if (!screws.length) continue;
-      const ref = this.tagRef(screws.map((p) => p.key));
-      total.set(ref, (total.get(ref) || 0) + screws.length);
+      const id = a.type + '|' + this.tagRef(screws.map((p) => p.key));
+      total.set(id, (total.get(id) || 0) + screws.length);
     }
     this.stepFasten = { total, done: new Map() };
+  }
+
+  /** viti di questo tipo avvitate (o serrate) in tutto nel passo */
+  stepTotal(type, keys, n) {
+    return (this.stepFasten && this.stepFasten.total.get(type + '|' + this.tagRef(keys))) || n;
   }
 
   addTag(keys, t0, t1, n, a) {
@@ -499,9 +506,10 @@ export class Choreography {
       if (hw) name = hw.name;
     }
     if (name.length > 24) name = name.slice(0, 23).trim() + '…';
-    const total = this.stepFasten?.total.get(ref) || n;
-    const done = this.stepFasten?.done.get(ref) || 0;
-    if (this.stepFasten) this.stepFasten.done.set(ref, done + n);
+    const id = (a && a.type === 'tighten' ? 'tighten' : 'fasten') + '|' + ref;
+    const total = this.stepFasten?.total.get(id) || n;
+    const done = this.stepFasten?.done.get(id) || 0;
+    if (this.stepFasten) this.stepFasten.done.set(id, done + n);
     let text;
     if (total <= n) text = (name ? name + ' ' : '') + '×' + n;                         // tutte in una volta
     else if (done === 0) text = (name ? name + ' ' : '') + '×' + n + ' di ' + total;    // prima azione: «×1 di 6»

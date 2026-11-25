@@ -357,10 +357,14 @@ function videoView(ctx) {
       box.append(h('div', { class: 'mt-16' }, progressBar(m.pct || 0, { indeterminate: queued }),
         h('div', { class: 'small mt-8' }, queued ? (m.message || 'In attesa di leggere il modello 3D…') : `Lettura del modello 3D · ${m.pct || 0} % — ${m.message || ''}`)));
     } else if (m.status === 'errore') {
-      const retry = h('button', { class: 'btn btn-primary', type: 'button' }, icon('refresh', 18), 'Riprova');
+      // file rovinato o non supportato: rileggere lo stesso file di solito non serve → prima «Carica un altro file»
+      const interrupted = /annullat|interrott/i.test(m.error || '');
+      const retry = h('button', { class: interrupted ? 'btn btn-primary' : 'btn', type: 'button' }, icon('refresh', 18), 'Riprova');
       retry.addEventListener('click', async () => { retry.disabled = true; try { await post(`/api/jobs/${ctx.id}/retry`, { what: 'modello' }); } catch (err) { toast(err.message, 'err'); retry.disabled = false; } });
-      box.append(h('div', { class: 'mt-16' }, notice('err', 'Il modello 3D non è stato letto', h('p', m.error || ''),
-        h('p', { class: 'small' }, 'Prova a esportarlo di nuovo in STEP, con le parti separate.'), h('div', { class: 'actions' }, retry))));
+      const other = interrupted ? null : h('button', { class: 'btn btn-primary', type: 'button', onclick: () => pickModel() }, icon('upload', 18), 'Carica un altro file');
+      box.append(h('div', { class: 'mt-16' }, notice('err', 'Il modello 3D non è stato letto', h('p', m.error || 'Errore sconosciuto.'),
+        /STEP/.test(m.error || '') || interrupted ? null : h('p', { class: 'small' }, 'Prova a esportarlo di nuovo in STEP, con le parti separate.'),
+        h('div', { class: 'actions' }, other, retry))));
     } else if (m.status === 'pronto') {
       box.append(h('div', { class: 'model-facts' },
         h('span', { class: 'pill pill-ok' }, icon('check', 14), 'Modello letto'),
@@ -369,7 +373,8 @@ function videoView(ctx) {
         m.size_text ? h('span', { class: 'pill' }, m.size_text.replace(/\s*\(.*\)$/, '')) : null));
       if (m.views?.length) {
         box.append(h('div', { class: 'views' }, m.views.map((v, i) => {
-          const src = `/api/jobs/${ctx.id}/views/${encodeURIComponent(v.name)}?v=${encodeURIComponent(m.imported_at || '')}`;
+          // copia senza l'etichetta tecnica (nomi del CAD, misure) pensata per Claude, se c'è
+          const src = `/api/jobs/${ctx.id}/views/${encodeURIComponent(v.ui_name || v.name)}?v=${encodeURIComponent(m.imported_at || '')}`;
           const label = v.ref_label || viewLabel(v.label);
           return h('figure', { class: i === 0 ? 'overview' : '', onclick: () => imagePreview(src, label), title: v.label },
             h('img', { src, alt: label, loading: 'lazy' }), h('figcaption', label));
@@ -438,7 +443,8 @@ function videoView(ctx) {
       return h('label', { class: ui.quality === q.value ? 'on' : '' }, input, h('span', null, h('b', q.label), h('small', q.note)));
     }));
     const ready3d = job.model_file && m.status === 'pronto';
-    const canStart = ui.mode === 'immagini' || !!job.model_file;
+    const modelBroken = ui.mode === '3d' && job.model_file && m.status === 'errore';
+    const canStart = ui.mode === 'immagini' || (!!job.model_file && !modelBroken);
     const replanBox = ui.mode === '3d' && ready3d && m.plan_sig ? h('label', { class: 'checkbox mt-16', style: 'font-weight:500' },
       h('input', { type: 'checkbox', checked: ui.replan, onchange: (e) => { ui.replan = e.target.checked; } }),
       'Chiedi di nuovo a Claude il piano dell’animazione (nuovo costo)') : null;
@@ -454,7 +460,9 @@ function videoView(ctx) {
       h('div', { class: 'row mt-24' },
         h('button', { class: 'btn btn-primary btn-lg', type: 'button', disabled: !canStart || !!uploading, onclick: startVideo }, icon('play', 18), job.outputs?.video ? 'Crea di nuovo il video' : 'Crea il video'),
         h('span', { class: 'small muted' }, ui.mode === '3d'
-          ? (ready3d ? (m.plan_sig ? 'Il piano dell’animazione già pronto verrà riutilizzato.' : 'Claude prepara prima il piano dell’animazione, poi parte il video.') : job.model_file ? 'Il video partirà dopo la lettura del modello.' : 'Carica prima il modello 3D qui sopra.')
+          ? (ready3d ? (m.plan_sig ? 'Il piano dell’animazione già pronto verrà riutilizzato.' : 'Claude prepara prima il piano dell’animazione, poi parte il video.')
+            : modelBroken ? 'Il modello 3D non è stato letto: caricane un altro (o premi «Riprova»), oppure scegli «Video con immagini».'
+              : job.model_file ? 'Il video partirà dopo la lettura del modello.' : 'Carica prima il modello 3D qui sopra.')
           : 'Il video con immagini è pronto in pochi minuti.')));
   };
 

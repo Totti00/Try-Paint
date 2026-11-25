@@ -2,7 +2,7 @@
 // carica i font e crea il motore della modalita' richiesta ('3d' o 'immagini').
 //
 // Espone: window.ready (Promise), window.renderAt(t) (posa tutto per l'istante t e disegna in modo
-// sincrono e deterministico), window.getDuration(), window.getInfo() { duration, posterTime, chapters }.
+// sincrono e deterministico), window.getDuration(), window.getInfo() { duration, posterTime, chapters, tags, warnings }.
 // Parametri URL: ?config=/altro.json  ?render (nessuna anteprima interattiva)  ?t=12.5
 
 import { resolveTheme, applyThemeCss } from './text.js';
@@ -37,7 +37,7 @@ async function init() {
 
   window.renderAt = (t) => { engine.renderAt(Math.max(0, Math.min(engine.duration, +t || 0))); return t; };
   window.getDuration = () => engine.duration;
-  window.getInfo = () => ({ duration: engine.duration, posterTime: engine.posterTime, chapters: engine.chapters || [], warnings: engine.warnings || [] });
+  window.getInfo = () => ({ duration: engine.duration, posterTime: engine.posterTime, chapters: engine.chapters || [], tags: engine.tags || [], warnings: engine.warnings || [] });
   window.renderAt(+qs.get('t') || 0);
   if (!qs.has('render')) startPreview(window.renderAt, engine.duration);
   return true;

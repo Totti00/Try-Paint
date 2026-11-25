@@ -18,6 +18,15 @@ fine() {
   exit "${1:-1}"
 }
 
+# Aperto dall'interno di uno ZIP (o copiato da solo)? Senza i file dello strumento accanto non può funzionare.
+if [ ! -f server.js ] || [ ! -f package.json ]; then
+  echo
+  echo "  Mancano i file dello strumento accanto a questo script."
+  echo "  Probabilmente lo hai aperto dall’interno del file ZIP: estrai prima tutto lo ZIP"
+  echo "  (doppio clic sullo ZIP, oppure tasto destro › Estrai) e avvia lo script dalla cartella estratta."
+  fine 1
+fi
+
 echo
 echo "  =================================================="
 echo "    STRUMENTO MANUALI"

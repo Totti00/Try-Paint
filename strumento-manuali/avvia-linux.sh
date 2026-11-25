@@ -3,6 +3,15 @@
 # Controlla Node.js, installa i componenti la prima volta e apre lo strumento nel browser.
 
 cd "$(dirname "$0")" || exit 1
+
+# Aperto dall'interno di uno ZIP (o copiato da solo)? Senza i file dello strumento accanto non può funzionare.
+if [ ! -f server.js ] || [ ! -f package.json ]; then
+  echo
+  echo "  Mancano i file dello strumento accanto a questo script."
+  echo "  Probabilmente lo hai aperto dall’interno del file ZIP: estrai prima tutto lo ZIP"
+  echo "  (doppio clic sullo ZIP, oppure tasto destro › Estrai) e avvia lo script dalla cartella estratta."
+  exit 1
+fi
 if ! command -v node >/dev/null 2>&1 && [ -s "$HOME/.nvm/nvm.sh" ]; then
   # shellcheck disable=SC1091
   . "$HOME/.nvm/nvm.sh" >/dev/null 2>&1

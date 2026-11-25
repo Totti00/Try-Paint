@@ -229,23 +229,27 @@ export async function createEngine({ cfg, theme, stage }) {
   const CAP_H = 236;          // altezza fissa del pannello didascalia (stage px)
   const CAP_TOP = SH - 64 - CAP_H;
   const WARN_GAP = 16;        // avvertenza appena sopra la didascalia
+  const WARN_LINE = 42;       // altezza di una riga dell'avvertenza (34 px)
   const AREA = { x: 96, y: 124, w: 1728, h: CAP_TOP - 26 - 124 };
   const CPS = 16;             // velocità di lettura (caratteri al secondo) per la durata dei passi
   let lastFigure = null;      // immagini dell'ultimo passo illustrato (per i passi senza figura)
+  // le figure dei passi riempiono l'area libera sopra la didascalia (anche ingrandendo le immagini piccole:
+  // su un telefono una figura grande e un po' morbida si legge meglio di una nitida ma minuscola)
+  const FIG_MAX = 5;
 
   /** schede delle immagini nell'area data: 1, 2 affiancate, oppure a coppie in sequenza */
   const placeFigures = (root, ims, area) => {
     const cards = [], groups = [];
     const half = { ...area, w: (area.w - 40) / 2 };
     if (ims.length === 1) {
-      cards.push(placeCard(root, ims[0], area, { pad: 18 }));
+      cards.push(placeCard(root, ims[0], area, { pad: 18, maxScale: FIG_MAX }));
       groups.push([0]);
     } else {
       chunk(ims, 2).forEach((pair) => {
         const idx = [];
-        if (pair.length === 1) { cards.push(placeCard(root, pair[0], area, { pad: 18 })); idx.push(cards.length - 1); } else {
-          cards.push(placeCard(root, pair[0], half, { pad: 18 })); idx.push(cards.length - 1);
-          cards.push(placeCard(root, pair[1], { ...half, x: area.x + half.w + 40 }, { pad: 18 })); idx.push(cards.length - 1);
+        if (pair.length === 1) { cards.push(placeCard(root, pair[0], area, { pad: 18, maxScale: FIG_MAX })); idx.push(cards.length - 1); } else {
+          cards.push(placeCard(root, pair[0], half, { pad: 18, maxScale: FIG_MAX })); idx.push(cards.length - 1);
+          cards.push(placeCard(root, pair[1], { ...half, x: area.x + half.w + 40 }, { pad: 18, maxScale: FIG_MAX })); idx.push(cards.length - 1);
         }
         groups.push(idx);
       });
@@ -272,7 +276,9 @@ export async function createEngine({ cfg, theme, stage }) {
     // testo completo (diviso in pagine nella didascalia, mai tagliato); l'avvertenza va nel suo riquadro
     const body = paras.join(' ').replace(/\s+/g, ' ').trim();
     const warn = s.warning ? String(s.warning).replace(/\s+/g, ' ').trim() : null;
-    const area = warn ? { ...AREA, h: AREA.h - 92 } : AREA;   // spazio per l'avvertenza sopra la didascalia
+    // spazio per l'avvertenza sopra la didascalia (una riga ≈ 80 caratteri a 34 px su 1728 px)
+    const warnLines = warn ? Math.min(3, Math.ceil(strip(warn).length / 80)) : 0;
+    const area = warn ? { ...AREA, h: AREA.h - (28 + warnLines * WARN_LINE + WARN_GAP) } : AREA;
     const uses = (s.uses || []).map((u) => {
       const c = compByCode.get(u.ref), h = hwById.get(u.ref);
       if (c) return { img: imgUrl(c.image_id), code: c.code, name: c.name, q: qtyLabel(u.qty), comp: true };
@@ -314,7 +320,8 @@ export async function createEngine({ cfg, theme, stage }) {
     // durata: tempo di lettura del testo completo (più l'avvertenza), con un minimo per guardare la figura
     const chars = strip(s.title).length + strip(body).length + (warn ? strip(warn).length : 0);
     let dur = 2.6 + chars / CPS + (warn ? 0.8 : 0) + (groups.length > 1 ? 1.2 * (groups.length - 1) : 0);
-    dur = Math.max(4.5, Math.min(30, dur));
+    // tetto alto: con testi molto lunghi meglio un passo lungo che pagine da leggere di corsa (≤ 60 s)
+    dur = Math.max(4.5, Math.min(60, dur));
     const sc = {
       kind: 'step', root, cards, groups, step: s, si,
       item: { id: 's' + si, kind: 'step', n: s.number, title: s.title, body, uses: usesInPanel ? uses : [] },
@@ -404,9 +411,15 @@ export async function createEngine({ cfg, theme, stage }) {
   for (const sc of scenes) { vis(sc.root, 1); if (sc.layout) sc.layout(); vis(sc.root, 0); }
   await end.prepare();
   end.update(1);
-  // tutte le didascalie una volta (misure), poi la prima
-  for (const sc of stepScenes) caption.setItem(sc.item);
-  const warnMax = 1728 - brand.width() - 60;
+  // didascalie: il testo completo di ogni passo diviso in "pagine" di 2 righe misurate davvero nel pannello
+  // (la larghezza dipende dalla colonna "Occorrente" del passo), mai tagliato con «…»
+  for (const sc of stepScenes) {
+    caption.setItem(sc.item);
+    sc.item.pages = caption.paginate(sc.item.body, 2);
+  }
+  caption.cur = null; // il testo mostrato ora è quello intero dell'ultimo passo: si riparte dalla prima pagina
+  warning.e.style.bottom = (64 + CAP_H + WARN_GAP) + 'px';
+  const warnMax = 1728;
 
   // intervalli consecutivi di passi (il pannello resta visibile)
   const runs = [];
@@ -417,6 +430,23 @@ export async function createEngine({ cfg, theme, stage }) {
   }
   // finestra di testo di ogni passo: cambia a meta' dissolvenza
   stepScenes.forEach((sc) => { sc.c0 = sc.t0 + XF / 2; sc.c1 = sc.t1 - XF / 2; });
+  // primo/ultimo passo di un intervallo: il testo entra ed esce insieme al pannello (niente pannello vuoto,
+  // niente testo del passo precedente mentre il pannello ricompare dopo il cartello di una fase)
+  for (const r of runs) {
+    const list = stepScenes.filter((sc) => sc.t0 >= r.t0 - 1e-6 && sc.t1 <= r.t1 + 1e-6);
+    if (list.length) { list[0].runStart = true; list[list.length - 1].runEnd = true; }
+  }
+  // cambi di pagina: ogni pagina resta per un tempo proporzionale alla sua lunghezza (il titolo si legge con la prima)
+  stepScenes.forEach((sc) => {
+    const pages = sc.item.pages || [];
+    sc.pageAt = [];
+    if (pages.length < 2) return;
+    const w = pages.map((pg, i) => strip(pg).length + 12 + (i === 0 ? strip(sc.item.title).length : 0));
+    const sum = w.reduce((a, b) => a + b, 0);
+    const from = sc.runStart ? sc.t0 + 0.3 : sc.c0, to = sc.c1 - 0.2;
+    let acc = 0;
+    for (let i = 0; i < pages.length - 1; i++) { acc += w[i]; sc.pageAt.push(from + (to - from) * acc / sum); }
+  });
 
   function renderAt(t) {
     for (let i = 0; i < scenes.length; i++) {
@@ -437,20 +467,33 @@ export async function createEngine({ cfg, theme, stage }) {
     // didascalia
     let capA = 0;
     for (const r of runs) capA = Math.max(capA, windowFade(t, r.t0, r.t1, 0.55, 0.55));
-    const cur = stepScenes.find((s) => t >= s.c0 && t < s.c1) || stepScenes.filter((s) => s.c0 <= t).pop() || stepScenes[0];
-    if (cur) {
+    // passo corrente: la sua finestra di testo; fuori dalle finestre (inizio e fine di un intervallo di passi)
+    // il passo la cui scena contiene t; il passo precedente solo a pannello ormai invisibile
+    const cur = stepScenes.find((s) => t >= s.c0 && t < s.c1) ||
+      stepScenes.find((s) => t >= s.t0 && t < s.t1) ||
+      stepScenes.filter((s) => s.t0 <= t).pop() || stepScenes[0];
+    if (cur && capA > 0.002) {
       caption.setItem(cur.item);
-      const isRunEnd = !stepScenes.some((s) => s.c0 >= cur.c1 - 1e-6 && Math.abs(s.c0 - cur.c1) < 0.01);
-      const textA = windowFade(t, cur.c0 - 0.001, isRunEnd ? cur.c1 + 10 : cur.c1, 0.25, 0.15);
-      const slide = (1 - EASE.out(clamp01((t - cur.c0) / 0.5))) * 16;
+      // pagina del testo e dissolvenza del solo testo al cambio di pagina
+      let page = 0, bodyA = 1;
+      for (const x of cur.pageAt) {
+        if (t >= x) page++;
+        const d = t - x;
+        if (d >= -0.22 && d < 0) bodyA = Math.min(bodyA, -d / 0.22);
+        else if (d >= 0 && d < 0.3) bodyA = Math.min(bodyA, d / 0.3);
+      }
+      caption.setPage(page);
+      const textA = windowFade(t, cur.runStart ? -1 : cur.c0 - 0.001, cur.runEnd ? cur.t1 + 10 : cur.c1, 0.25, 0.15);
+      const slide = cur.runStart ? 0 : (1 - EASE.out(clamp01((t - cur.c0) / 0.5))) * 16;
       const fills = stepScenes.map((s) => (t >= s.c1 ? 1 : t <= s.c0 ? 0 : clamp01((t - s.c0) / (s.c1 - s.c0))));
-      caption.update(t, { a: capA, fills, curIndex: stepScenes.indexOf(cur), textA, slide });
+      caption.update(t, { a: capA, fills, curIndex: stepScenes.indexOf(cur), textA, slide, bodyA });
       caption.e.style.transform = `translateY(${((1 - capA) * 30).toFixed(1)}px)`;
-      // avvertenza
+      // avvertenza, appena sopra la didascalia
       if (cur.warn) {
         warning.set(cur.warn, warnMax);
-        const wa = windowFade(t, cur.c0 + 0.5, cur.c1, 0.4, 0.25) * capA;
-        warning.update(wa, (1 - EASE.out(clamp01((t - cur.c0 - 0.5) / 0.5))) * -14);
+        const w0 = (cur.runStart ? cur.t0 : cur.c0) + 0.5;
+        const wa = windowFade(t, w0, cur.runEnd ? cur.t1 + 10 : cur.c1, 0.4, 0.25) * capA;
+        warning.update(wa, (1 - EASE.out(clamp01((t - w0) / 0.5))) * 14);
       } else warning.update(0);
     } else {
       vis(caption.e, 0);
@@ -462,7 +505,11 @@ export async function createEngine({ cfg, theme, stage }) {
   return {
     duration: DURATION,
     posterTime: Math.min(intro.t1 - XF - 0.2, 2.8),
-    chapters: scenes.map((s) => ({ kind: s.kind, t0: +s.t0.toFixed(2), t1: +s.t1.toFixed(2), title: s.item ? s.item.title : undefined })),
+    // per i passi anche le "pagine" della didascalia e i tempi dei cambi di pagina (verifiche nei test)
+    chapters: scenes.map((s) => ({
+      kind: s.kind, t0: +s.t0.toFixed(2), t1: +s.t1.toFixed(2), title: s.item ? s.item.title : undefined,
+      ...(s.item ? { pages: s.item.pages || [], page_at: (s.pageAt || []).map((x) => +x.toFixed(2)) } : {}),
+    })),
     warnings,
     renderAt,
   };

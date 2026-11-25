@@ -387,6 +387,7 @@ export async function createEngine({ cfg, theme, stage, W, H }) {
     duration: ch.duration,
     posterTime: Math.min(2.6, TIMING.intro - 0.8),
     chapters: capItems.map((c) => ({ kind: c.kind, n: c.n, t0: +c.t0.toFixed(2), t1: +c.t1.toFixed(2), title: c.title })),
+    tags: ch.tags.map((tg) => ({ t0: +tg.t0.toFixed(2), t1: +tg.t1.toFixed(2), text: tg.text })), // etichette ×N (verifiche)
     warnings: ch.warnings,
     renderAt,
   };

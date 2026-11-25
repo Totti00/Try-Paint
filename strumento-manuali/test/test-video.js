@@ -94,15 +94,35 @@ async function testImmagini() {
   console.log(`    ffmpeg: ${info.codec} ${info.width}x${info.height} ${info.fps} fps, ${info.duration.toFixed(2)} s (atteso ${r.duration.toFixed(2)} s)`);
   ok(info.codec === 'h264' && info.width === 960 && info.height === 540 && Math.round(info.fps) === 15, 'H.264 960×540 a 15 fps');
   ok(Math.abs(info.duration - r.duration) < 0.25, 'durata del file coerente con la timeline');
-  ok(r.duration > 45 && r.duration < 120, `durata ragionevole per 7 passi (${r.duration.toFixed(1)} s)`);
+  // i passi durano quanto serve per leggere il testo completo (circa 16 caratteri al secondo)
+  ok(r.duration > 45 && r.duration < 200, `durata ragionevole per 7 passi (${r.duration.toFixed(1)} s)`);
   const steps = r.chapters.filter((c) => c.kind === 'step');
   ok(steps.length === manual.steps.length, `un capitolo per passo (${steps.length})`);
-  ok(steps.every((c) => c.t1 - c.t0 >= 4 && c.t1 - c.t0 <= 9.01), 'ogni passo dura 4–9 s');
+  ok(steps.every((c) => c.t1 - c.t0 >= 4 && c.t1 - c.t0 <= 60.01), `ogni passo dura 4–60 s (${steps.map((c) => (c.t1 - c.t0).toFixed(1)).join(', ')})`);
+  checkCaptionPages(manual, steps);
   const times = [1.5, 3.5, ...r.chapters.slice(1).map((c) => Math.min(r.duration - 0.1, c.t0 + (c.t1 - c.t0) * 0.6))];
   const { sheet, frames } = await contactSheet(r.videoPath, times, path.join(OUT, 'provino-immagini.png'), 4);
   const sd = await Promise.all(frames.map(imageStdev));
   ok(sd.every((v) => v > 6), 'nessun fotogramma vuoto (tinta unita)');
   console.log('    PROVINO: ' + sheet);
+}
+
+/** didascalie del video con immagini: testo completo diviso in pagine (mai tagliato con «…»), tempo per leggerlo */
+function checkCaptionPages(manual, steps) {
+  const plain = (x) => String(x || '').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
+  const issues = [];
+  manual.steps.forEach((s, i) => {
+    const c = steps[i];
+    if (!c || !Array.isArray(c.pages)) { issues.push(`passo ${s.number}: pagine mancanti`); return; }
+    const body = plain(s.paragraphs.join(' '));
+    const joined = plain(c.pages.join(' '));
+    if (joined !== body) issues.push(`passo ${s.number}: testo diverso da quello della scheda («${joined.slice(0, 60)}…»)`);
+    const dur = c.t1 - c.t0;
+    if (dur < 59 && body.length / dur > 18) issues.push(`passo ${s.number}: ${body.length} caratteri in ${dur.toFixed(1)} s`);
+    if (c.page_at.length !== Math.max(0, c.pages.length - 1)) issues.push(`passo ${s.number}: cambi di pagina incoerenti`);
+  });
+  const nPages = steps.reduce((n, c) => n + (c.pages ? c.pages.length : 0), 0);
+  ok(!issues.length, `didascalie complete, divise in ${nPages} pagine, senza «…»${issues.length ? ': ' + issues.join('; ') : ''}`);
 }
 
 async function testImmaginiStress() {
@@ -115,6 +135,7 @@ async function testImmaginiStress() {
   const r = await renderVideo(job, { mode: 'immagini', manual, quality: 'anteprima', onProgress: progressPrinter('stress'), log: quietLog });
   const info = await probeVideo(r.videoPath);
   ok(Math.abs(info.duration - r.duration) < 0.25, `video stress reso (${info.duration.toFixed(1)} s)`);
+  checkCaptionPages(manual, r.chapters.filter((c) => c.kind === 'step'));
   const times = r.chapters.map((c) => Math.min(r.duration - 0.1, c.t0 + (c.t1 - c.t0) * 0.55));
   const { sheet } = await contactSheet(r.videoPath, times, path.join(OUT, 'provino-immagini-stress.png'), 5);
   console.log('    PROVINO: ' + sheet);
@@ -208,6 +229,10 @@ async function test3d() {
   ok(r.warnings.length === 0, 'nessun avviso dal piano' + (r.warnings.length ? ': ' + r.warnings.join('; ') : ''));
   const ch = r.chapters;
   ok(ch.filter((c) => c.kind === 'step').length === 7, '7 passi nella timeline');
+  // etichette delle viti contate sul passo intero (passo 7: 1 vite in primo piano, poi le altre 5 → «×1 di 6», «ancora 5»)
+  const tagTexts = (r.tags || []).map((t) => t.text);
+  ok(tagTexts.includes('Vite da legno inox ×1 di 6') && tagTexts.includes('Vite da legno inox: ancora 5') && !tagTexts.includes('Vite da legno inox ×5'),
+    `etichette ×N coerenti con il totale del passo (${tagTexts.join(' | ')})`);
   const times = [1.5, 7.5];
   for (const c of ch.filter((x) => x.kind === 'step')) for (const u of [0.3, 0.75]) times.push(c.t0 + (c.t1 - c.t0) * u);
   const fin = ch.find((c) => c.kind === 'check');

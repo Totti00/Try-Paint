@@ -9,6 +9,7 @@
 // (PDF, video con immagini e video 3D in qualità "anteprima"). Esce con codice 1 se una verifica fallisce.
 
 import { spawn } from 'node:child_process';
+import http from 'node:http';
 import fs from 'node:fs/promises';
 import { existsSync, openAsBlob } from 'node:fs';
 import net from 'node:net';
@@ -115,6 +116,40 @@ async function waitJob(id, pred, { timeout = 300000, allowError = false } = {}) 
   }
 }
 
+/** Richiesta HTTP "a mano" (fetch non permette di cambiare l'intestazione Host). */
+function rawReq(method, url, headers = {}, body = null) {
+  return new Promise((resolve, reject) => {
+    const r = http.request({ host: '127.0.0.1', port: PORT, method, path: url, headers }, (res) => {
+      let data = '';
+      res.setEncoding('utf8');
+      res.on('data', (d) => { data += d; });
+      res.on('end', () => resolve({ status: res.statusCode, body: data }));
+    });
+    r.on('error', reject);
+    if (body) r.write(body);
+    r.end();
+  });
+}
+
+/** Avvia una seconda copia del server (stessa cartella dei lavori) e ne aspetta l'uscita. */
+function runSecondCopy(port) {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, [path.join(ROOT, 'server.js')], {
+      cwd: ROOT,
+      env: { ...process.env, PORT: String(port), NO_BROWSER: '1', HOST: '', MANUALI_JOBS_DIR: JOBS, MANUALI_CONFIG_DIR: CONFIG,
+        MANUALI_AI_FIXTURE: path.join(FIX, 'manual.json'), MANUALI_PLAN_FIXTURE: path.join(FIX, 'plan.json'), ANTHROPIC_API_KEY: '' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let out = '';
+    child.stdout.on('data', (d) => { out += d; });
+    child.stderr.on('data', (d) => { out += d; });
+    const timer = setTimeout(() => child.kill('SIGKILL'), 20000);
+    child.on('exit', (code) => { clearTimeout(timer); resolve({ code, out }); });
+  });
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 async function form(fields) {
   const fd = new FormData();
   for (const [name, file, filename] of fields) {
@@ -173,6 +208,20 @@ async function main() {
   ok(r.status === 403, 'richiesta da un altro sito (Origin) rifiutata');
   r = await req('POST', '/api/settings', { body: '{non json', headers: { 'Content-Type': 'application/json' } });
   ok(r.status === 400 && /JSON/.test(r.data.error), 'JSON non valido → 400');
+  r = await req('POST', '/api/settings', { json: { theme: null }, headers: { Origin: 'null' } });
+  ok(r.status === 403, 'modifica con «Origin: null» (iframe isolato, file locale) rifiutata');
+
+  section('Protezione dal «DNS rebinding» (intestazione Host)');
+  let rr = await rawReq('GET', '/api/settings', { Host: `evil.example:${PORT}` });
+  ok(rr.status === 421 && /localhost/.test(rr.body), `GET con Host di un altro sito → ${rr.status}`);
+  rr = await rawReq('POST', '/api/jobs', { Host: `evil.example:${PORT}`, Origin: `http://evil.example:${PORT}`, 'Sec-Fetch-Site': 'same-origin', 'Content-Type': 'application/json' }, '{}');
+  ok(rr.status === 421, `POST con Host e Origin dello stesso sito esterno → ${rr.status}`);
+  rr = await rawReq('POST', '/api/settings', { Host: `evil.example:${PORT}`, Origin: `http://evil.example:${PORT}`, 'Content-Type': 'application/json' }, '{"theme":{"accent":"#000000"}}');
+  ok(rr.status === 421 && (await req('GET', '/api/settings')).data.theme.accent === '#FF7E00', 'impostazioni non modificabili da un sito esterno');
+  rr = await rawReq('GET', '/', { Host: `localhost:${PORT}` });
+  ok(rr.status === 200, 'Host «localhost» accettato');
+  rr = await rawReq('GET', '/api/health', { Host: `[::1]:${PORT}` });
+  ok(rr.status === 200, 'Host «[::1]» accettato');
 
   // ------------------------------------------------------------------------------------------------
   section('Caricamento: file sbagliati rifiutati subito');
@@ -252,6 +301,38 @@ async function main() {
   r = await req('PATCH', `/api/jobs/${id}`, { json: { review: { verified: [0, 5, 'x', -1] } } });
   ok(r.status === 200 && JSON.stringify(r.data.review.verified) === '[0,5]', 'verifiche «ho verificato» salvate');
 
+  section('Salvataggi simultanei della scheda (due schede aperte)');
+  const parallel = await Promise.all(Array.from({ length: 8 }, (_, i) => {
+    const m = structuredClone(edited);
+    m.steps[0].title = `Titolo parallelo ${i}`;
+    return req('PUT', `/api/jobs/${id}/manual`, { json: m });
+  }));
+  ok(parallel.every((x) => x.status === 200), `8 salvataggi in parallelo → ${[...new Set(parallel.map((x) => x.status))].join(', ')}`);
+  const onDisk = JSON.parse(await fs.readFile(path.join(dir, 'manual.json'), 'utf8'));
+  ok(/^Titolo parallelo \d$/.test(onDisk.steps[0].title), 'manual.json integro dopo i salvataggi simultanei');
+  ok(!(await fs.readdir(dir)).some((f) => f.endsWith('.tmp')), 'nessun file temporaneo rimasto');
+  r = await req('PUT', `/api/jobs/${id}/manual`, { json: edited });
+  ok(r.status === 200, 'scheda rimessa com’era');
+
+  section('Nome di file lungo; cancellazione durante la lettura del documento');
+  const longName = 'Manuale di montaggio ' + 'tavolo '.repeat(42) + 'versione finale.pdf'; // ~330 caratteri (Windows ne ammette 255)
+  r = await req('POST', '/api/jobs', { body: await form([['documento', path.join(FIX, 'TAVOLO_LEVANTE_originale.pdf'), longName]]) });
+  ok(r.status === 201 && /\.pdf$/.test(r.data.job?.input_name || '') && r.data.job.input_name.length <= 160,
+    `nome lungo accettato, accorciato tenendo l’estensione (${r.status}: «…${String(r.data.job?.input_name || r.data.error).slice(-24)}»)`);
+  const id2 = r.data.id;
+  if (id2) {
+    const w2 = await waitJob(id2, (j) => j.status === 'revisione' || (j.progress && !j.progress.queued && ['estrazione', 'immagini'].includes(j.progress.stage)), { timeout: 60000 });
+    const during = w2.job.status !== 'revisione';
+    const tDel = Date.now();
+    r = await req('DELETE', `/api/jobs/${id2}`);
+    const secs = (Date.now() - tDel) / 1000;
+    ok(r.status === 200 && secs < 10, `DELETE ${during ? 'durante la lettura del documento' : 'a lettura già finita'} → ${r.status} in ${secs.toFixed(1)} s`);
+    await sleep(3000);
+    ok(!existsSync(path.join(JOBS, id2)), 'nessuna cartella orfana rimasta (la lettura si è fermata)');
+    r = await req('GET', '/api/jobs');
+    ok(r.data.length === 1 && r.data[0].id === id, 'elenco dei lavori: resta solo il primo');
+  }
+
   // ------------------------------------------------------------------------------------------------
   section('PDF');
   r = await req('POST', `/api/jobs/${id}/pdf`);
@@ -261,12 +342,25 @@ async function main() {
   w = await waitJob(id, (j) => j.status === 'pdf_pronto', { timeout: 240000 });
   ok(w.job.outputs.pdf === 'out/manuale.pdf' && w.job.outputs.pdf_pages > 3, `PDF pronto (${w.job.outputs.pdf_pages} pagine)`);
   ok(Array.isArray(w.job.warnings.pdf), `avvisi di impaginazione nel job (${w.job.warnings.pdf.length})`);
+  ok(w.job.outputs.pdf_manual_at === w.job.manual_saved_at, 'il PDF ricorda la versione della scheda usata (pdf_manual_at)');
   r = await req('GET', `/api/jobs/${id}/files/manuale.pdf?download=1`);
   ok(r.status === 200 && r.headers.get('content-type') === 'application/pdf', 'download del PDF');
   ok(/attachment; filename="?Istruzioni_Montaggio_Tavolo_Levante\.pdf/.test(r.headers.get('content-disposition')), `nome del file: ${r.headers.get('content-disposition')}`);
   ok(r.data.subarray(0, 5).toString() === '%PDF-' && r.data.length > 100000, `contenuto PDF (${Math.round(r.data.length / 1024)} KB)`);
   r = await req('GET', `/api/jobs/${id}/files/manuale.pdf`);
   ok(/^inline/.test(r.headers.get('content-disposition')), 'anteprima del PDF in linea');
+
+  section('Scheda salvata mentre il PDF è in creazione → PDF da rifare');
+  r = await req('POST', `/api/jobs/${id}/pdf`);
+  await waitJob(id, (j) => j.status === 'pdf' && j.progress && !j.progress.queued && j.progress.pct >= 3, { timeout: 60000 });
+  const during = structuredClone(edited);
+  during.steps[0].title = 'Titolo cambiato durante la creazione del PDF';
+  r = await req('PUT', `/api/jobs/${id}/manual`, { json: during });
+  ok(r.status === 200, 'salvataggio durante la creazione del PDF → 200');
+  w = await waitJob(id, (j) => j.status === 'pdf_pronto', { timeout: 240000 });
+  ok(w.job.outputs.pdf_manual_at && w.job.outputs.pdf_manual_at < w.job.manual_saved_at && w.job.outputs.pdf_at > w.job.manual_saved_at,
+    'PDF finito dopo il salvataggio ma fatto con la scheda precedente: segnalato come da rifare');
+  r = await req('PUT', `/api/jobs/${id}/manual`, { json: edited });
 
   // ------------------------------------------------------------------------------------------------
   section('Video con immagini (anteprima)');
@@ -299,6 +393,15 @@ async function main() {
   ok(r.status === 409, 'annullare senza operazioni in corso → 409');
 
   // ------------------------------------------------------------------------------------------------
+  section('Modello 3D non leggibile → messaggio in italiano');
+  r = await req('POST', `/api/jobs/${id}/model`, { body: await form([['modello3d', Buffer.alloc(1024, 0xab), 'rotto.stl']]) });
+  ok(r.status === 202, 'file .stl qualsiasi caricato');
+  w = await waitJob(id, (j) => j.model3d.status === 'errore' || j.model3d.status === 'pronto', { timeout: 120000 });
+  ok(w.job.model3d.status === 'errore' && /Non riesco a leggere il file 3D «rotto\.stl»/.test(w.job.model3d.error) && !/DataView|Offset|bounds/i.test(w.job.model3d.error),
+    `errore comprensibile («${String(w.job.model3d.error).slice(0, 70)}…»)`);
+  ok(w.job.status === 'completato' && w.job.error === null, 'il lavoro resta com’era (PDF e video disponibili)');
+  ok(/ERRORE \(lettura del modello 3D\): \S/.test(await fs.readFile(path.join(dir, 'log.txt'), 'utf8')), 'dettagli tecnici solo nel registro del lavoro');
+
   section('Modello 3D (GLB) → viste delle parti → video 3D (anteprima)');
   r = await req('POST', `/api/jobs/${id}/model`, { body: await form([['modello3d', path.join(FIX, 'tavolo-parametrico.glb')]]) });
   ok(r.status === 202 && r.data.model_file === 'modello/tavolo-parametrico.glb', 'modello caricato');
@@ -307,6 +410,8 @@ async function main() {
   ok(w.job.model3d.views.length >= 2, `viste delle parti: ${w.job.model3d.views.length}`);
   r = await req('GET', `/api/jobs/${id}/views/${w.job.model3d.views[0].name}`);
   ok(r.status === 200 && r.headers.get('content-type') === 'image/png', 'vista d’insieme (PNG)');
+  r = await req('GET', `/api/jobs/${id}/views/${w.job.model3d.views[0].ui_name}`);
+  ok(r.status === 200 && r.headers.get('content-type') === 'image/png', 'vista d’insieme senza etichetta per l’interfaccia (ui_name)');
   r = await req('POST', `/api/jobs/${id}/model/reimport`, { json: { upAxis: 'x' } });
   ok(r.status === 400, 'asse verticale non valido → 400');
   r = await req('POST', `/api/jobs/${id}/video`, { json: { mode: '3d', quality: 'anteprima' } });
@@ -319,6 +424,17 @@ async function main() {
   ok(r.status === 200 && isMp4(r.data), `download MP4 3D (${Math.round(r.data.length / 1024)} KB)`);
   const log = (await req('GET', `/api/jobs/${id}/log`)).data.toString();
   ok(/MODALITÀ TEST/.test(log) && /inizio: creazione del video/.test(log), 'registro del lavoro (log.txt)');
+
+  section('Registro illeggibile: il server non si ferma');
+  const logFile = path.join(dir, 'log.txt');
+  await fs.rename(logFile, logFile + '.bak');
+  await fs.mkdir(logFile);
+  r = await req('GET', `/api/jobs/${id}/log`);
+  ok(r.status >= 400 && r.status < 600, `GET del registro con log.txt illeggibile → ${r.status}`);
+  r = await req('GET', '/api/health');
+  ok(r.status === 200 && server.child.exitCode === null, 'il server risponde ancora');
+  await fs.rm(logFile, { recursive: true, force: true });
+  await fs.rename(logFile + '.bak', logFile);
 
   // ------------------------------------------------------------------------------------------------
   section('Percorsi non consentiti (path traversal)');
@@ -351,6 +467,18 @@ async function main() {
   section('Programma chiuso durante un’operazione → «Riprova»');
   r = await req('POST', `/api/jobs/${id}/video`, { json: { mode: 'immagini', quality: 'anteprima' } });
   await waitJob(id, (j) => j.status === 'video' && j.progress && !j.progress.queued && j.progress.pct > 3, { timeout: 60000 });
+  // doppio clic in più sullo script di avvio mentre lo strumento lavora: la seconda copia non deve toccare nulla
+  await fs.mkdir(path.join(JOBS, '.caricamenti'), { recursive: true });
+  await fs.writeFile(path.join(JOBS, '.caricamenti', 'in-corso.upload'), 'caricamento della prima copia');
+  const second = await runSecondCopy(PORT);
+  ok(second.code === 0 && /già aperto/.test(second.out), `seconda copia sulla stessa porta: «già aperto», uscita ${second.code}`);
+  const third = await runSecondCopy(await freePort());
+  ok(third.code === 0 && /già aperto/.test(third.out) && third.out.includes(`localhost:${PORT}`), 'seconda copia su un’altra porta: riconosce quella attiva (lavori/.server.lock)');
+  ok(existsSync(path.join(JOBS, '.caricamenti', 'in-corso.upload')), 'i caricamenti in corso della prima copia restano');
+  const diskJob = JSON.parse(await fs.readFile(path.join(dir, 'job.json'), 'utf8'));
+  r = await req('GET', `/api/jobs/${id}`);
+  ok(diskJob.status === 'video' && !diskJob.error && r.data.status === 'video', 'il lavoro in corso non viene segnato come interrotto');
+  ok(!/interrotta/.test(await fs.readFile(path.join(dir, 'log.txt'), 'utf8').then((t) => t.split('\n').slice(-20).join('\n'))), 'nessuna «operazione interrotta» nel registro');
   server.child.kill('SIGKILL');
   await new Promise((res) => server.child.once('exit', res));
   server = await startServer();

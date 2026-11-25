@@ -187,7 +187,7 @@ export function balanceEmphasis(pages) {
   });
 }
 
-/** avvertenza in alto a destra (tag arancio "Attenzione" + testo) */
+/** avvertenza (tag arancio "Attenzione" + testo): nel video con immagini appena sopra la didascalia */
 export class Warning {
   constructor(stage) {
     this.e = el('div', null, `<div class="tag">${ICON.warn}<span>Attenzione</span></div><div class="msg"></div>`);

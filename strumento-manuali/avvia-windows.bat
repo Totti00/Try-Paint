@@ -6,6 +6,10 @@ setlocal EnableExtensions
 title Strumento manuali
 cd /d "%~dp0"
 
+rem Aperto dall'interno dello ZIP (Esplora risorse estrae solo questo file in una cartella temporanea)?
+if not exist "server.js" goto notextracted
+if not exist "package.json" goto notextracted
+
 echo.
 echo   ==================================================
 echo     STRUMENTO MANUALI
@@ -42,6 +46,18 @@ echo.
 node server.js
 if errorlevel 1 goto crashed
 exit /b 0
+
+:notextracted
+echo.
+echo   Mancano i file dello strumento accanto a questo script.
+echo.
+echo   Probabilmente lo hai aperto dall'interno del file ZIP, senza estrarlo.
+echo   1. Chiudi questa finestra.
+echo   2. Tasto destro sul file ZIP, poi "Estrai tutto..." e conferma.
+echo   3. Apri la cartella estratta e fai doppio clic su avvia-windows.bat da li'.
+echo.
+pause
+exit /b 1
 
 :nonode
 echo   Node.js non risulta installato su questo computer.
