@@ -18,7 +18,7 @@
 //   slugify, prettyName, safeFileName   utilità per nomi di file sicuri (anche su Windows)
 //
 // job.json: vedi ARCHITETTURA.md (campi aggiuntivi: input_name, input_kind, task, warnings, cost, test_mode,
-// review, model3d, outputs.pdf_at/video_at/pdf_manual_at/video_manual_at, manual_saved_at, thumb).
+// review, model3d, outputs.pdf_at/video_at/pdf_manual_at/video_manual_at/pdf_video_url, manual_saved_at, thumb, video_url).
 
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs/promises';
@@ -160,10 +160,11 @@ function normalize(raw) {
     progress: j.progress ?? null,
     error: j.error ?? null,
     task: j.task ?? null,
-    outputs: { pdf: null, pdf_at: null, pdf_manual_at: null, video: null, poster: null, video_at: null, video_manual_at: null, ...obj(j.outputs) },
+    outputs: { pdf: null, pdf_at: null, pdf_manual_at: null, pdf_video_url: null, video: null, poster: null, video_at: null, video_manual_at: null, ...obj(j.outputs) },
     video_mode: j.video_mode ?? null,
     video_quality: j.video_quality ?? null,
     video_duration: j.video_duration ?? null,
+    video_url: typeof j.video_url === 'string' && j.video_url ? j.video_url : null, // link del video → QR code nel PDF
     warnings: { ingest: arr(w.ingest), images: arr(w.images), pdf: arr(w.pdf), video: arr(w.video), model: arr(w.model) },
     cost: j.cost ?? null,
     test_mode: !!j.test_mode,

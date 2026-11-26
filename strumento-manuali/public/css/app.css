@@ -476,6 +476,15 @@ main { outline: none; }
 .tips { margin: 8px 0 0; padding-left: 20px; color: var(--text); }
 .tips li { margin: 3px 0; }
 .label-row { font-weight: 700; color: var(--ink); margin: 20px 0 10px; font-family: var(--font-head); font-size: 17px; }
+/* link del video per il QR code nel PDF (passi PDF e video) */
+.qr-link h3 { display: flex; align-items: center; gap: 8px; font-size: 19px; margin-bottom: 4px; }
+.qr-link h3 svg { color: var(--accent-ink); }
+.qr-link > p { margin: 0 0 14px; }
+.card > .qr-link h3 { font-size: 22px; }
+.result-head ~ .qr-link { margin-top: 16px; padding: 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+.qr-link-wrap { max-width: 640px; margin: 30px auto 0; padding-top: 24px; border-top: 1px solid var(--line); text-align: left; }
+.qr-link-status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0; }
+@media (max-width: 440px) { .qr-link .input-group { flex-direction: column; } }
 
 /* ------------------------------------------------------------------ finestre e avvisi */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(31, 28, 26, .55); z-index: 80; display: grid; place-items: center; padding: 20px; animation: fade .12s ease-out; }

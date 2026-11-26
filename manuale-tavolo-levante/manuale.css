@@ -164,6 +164,35 @@ h2.sec .sec-n {
 .comp .card-txt p { font-size: 9.6pt; line-height: 1.3; color: var(--text); }
 .qty-inline { font-family: var(--num); font-weight: 700; font-size: 14pt; color: var(--orange-ink); }
 
+/* riquadro con il QR code del video (in fondo alla pagina 2).
+   genera_pdf.cjs lo toglie, insieme alla classe has-qr, finché il link del video è quello segnaposto */
+.has-qr .content { display: flex; flex-direction: column; }
+.has-qr .page-title { margin-bottom: 5mm; }
+.has-qr h2.sec { margin-bottom: 3mm; }
+.has-qr .hw-grid { margin-bottom: 7mm; }
+.has-qr .hw .card-img { height: 36mm; padding: 3.5mm; }
+.has-qr .comp-grid { gap: 4.5mm; }
+.has-qr .comp .card-img { height: 37mm; padding: 3.5mm 6mm; }
+.qr-box {
+  margin-top: auto;
+  display: grid; grid-template-columns: auto 1fr; gap: 8mm; align-items: center;
+  background: var(--beige-soft); border-radius: 3mm; padding: 4.5mm 8mm 4.5mm 4.5mm;
+}
+.qr-code { width: 32mm; height: 32mm; background: #fff; border-radius: 1.6mm; overflow: hidden; }
+.qr-code img { width: 100%; height: 100%; }
+.qr-tag {
+  display: inline-flex; align-items: center; gap: 1.6mm;
+  font-family: var(--head); font-weight: 800; font-size: 9pt; letter-spacing: .12em; text-transform: uppercase;
+  color: #fff; background: var(--orange-ink); border-radius: 1mm; padding: .9mm 2.2mm .7mm 1.8mm; margin-bottom: 3mm;
+}
+.qr-tag svg { width: 2.6mm; height: 2.6mm; fill: currentColor; }
+.qr-box h3 { font-family: var(--head); font-weight: 700; font-size: 17pt; line-height: 1.1; color: var(--ink); margin-bottom: 1.6mm; }
+.qr-box p { font-size: 10.5pt; }
+.qr-url {
+  display: block; margin-top: 2.6mm; padding-top: 2.4mm; border-top: .25mm solid var(--beige);
+  font-size: 8pt; letter-spacing: .04em; color: var(--muted); overflow-wrap: anywhere;
+}
+
 /* ------------------------------------------------------------- PANORAMICA */
 .phase-label {
   display: flex; align-items: center; gap: 3mm;

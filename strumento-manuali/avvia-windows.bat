@@ -22,9 +22,11 @@ if errorlevel 1 goto nonode
 node -e "const [a,b]=process.versions.node.split('.').map(Number);process.exit(a>22||(a===22&&b>=13)?0:1)"
 if errorlevel 1 goto oldnode
 
-if exist "node_modules\express\" goto deps_ok
-echo   Prima installazione dei componenti.
-echo   Serve la connessione a Internet: ci vuole qualche minuto, solo la prima volta.
+rem componenti mancanti (prima volta, o dopo un aggiornamento che ne ha aggiunti di nuovi)
+node -e "const fs=require('fs');process.exit(Object.keys(require('./package.json').dependencies||{}).every((d)=>fs.existsSync('node_modules/'+d+'/package.json'))?0:1)" >nul 2>nul
+if not errorlevel 1 goto deps_ok
+echo   Installazione dei componenti - la prima volta o dopo un aggiornamento.
+echo   Serve la connessione a Internet: ci vuole qualche minuto.
 echo.
 call npm install --no-fund --no-audit
 if errorlevel 1 goto npmfail

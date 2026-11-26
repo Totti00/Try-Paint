@@ -32,6 +32,7 @@ import {
 } from './src/jobs.js';
 import { writeJsonAtomic as writeJsonFile } from './src/fsutil.js';
 import { getSettings, saveSettings, SettingsError, DEFAULT_MODEL, DEFAULT_THEME } from './src/settings.js';
+import { normalizeVideoUrl, VideoUrlError } from './src/pdf/qr.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(ROOT, 'public');
@@ -694,11 +695,12 @@ const TASKS = {
     const { jobId } = task;
     const dir = jobDir(jobId);
     const { manual, savedAt } = await readManualSnapshot(jobId);
+    const videoUrl = (await getJob(jobId))?.video_url || null; // link del video → QR code a pagina 2
     const { theme } = await getSettings();
     await setStage(task, 'pdf', 'pdf', 1, 'Preparazione del PDF…');
     const { generatePdf } = await import('./src/pdf/generate.js');
     await generatePdf(dir, manual, {
-      outPath: path.join(dir, 'out', 'manuale.pdf'), theme, onProgress: reporter(task, { from: 1, to: 99, stage: 'pdf' }), signal: task.controller.signal,
+      outPath: path.join(dir, 'out', 'manuale.pdf'), theme, videoUrl, onProgress: reporter(task, { from: 1, to: 99, stage: 'pdf' }), signal: task.controller.signal,
     });
     checkCancel(task);
     const layout = await readJson(path.join(dir, 'pdf-build', 'layout.json'), {});
@@ -706,6 +708,7 @@ const TASKS = {
       j.outputs.pdf = 'out/manuale.pdf';
       j.outputs.pdf_at = nowIso();
       j.outputs.pdf_manual_at = savedAt; // versione della scheda usata (salvataggi fatti durante la creazione → PDF da rifare)
+      j.outputs.pdf_video_url = videoUrl; // link del QR usato: se poi cambia, il PDF è da rifare
       j.outputs.pdf_pages = Array.isArray(layout?.pages) ? layout.pages.length : Number.isFinite(layout?.pages) ? layout.pages : null;
       j.warnings.pdf = Array.isArray(layout?.warnings) ? layout.warnings.map(String) : [];
       j.progress = null;
@@ -1045,12 +1048,25 @@ export function createApp({ ready = null } = {}) {
   app.patch('/api/jobs/:id', async (req, res) => {
     await requireJob(req.params.id);
     const body = req.body && typeof req.body === 'object' ? req.body : {};
+    // link del video per il QR code nel PDF: http/https, ≤ 500 caratteri; vuoto o null = nessun QR
+    let videoUrl;
+    if ('video_url' in body) {
+      try {
+        videoUrl = normalizeVideoUrl(body.video_url);
+      } catch (err) {
+        if (err instanceof VideoUrlError) throw new HttpError(400, err.message);
+        throw err;
+      }
+    }
+    let urlChanged = false;
     const job = await updateJob(req.params.id, (j) => {
       if (body.review && Array.isArray(body.review.verified)) {
         j.review = { ...j.review, verified: [...new Set(body.review.verified.filter((n) => Number.isInteger(n) && n >= 0 && n < 1000))].sort((a, b) => a - b) };
       }
       if (typeof body.name === 'string' && body.name.trim()) j.name = body.name.trim().slice(0, 120);
+      if (videoUrl !== undefined && videoUrl !== (j.video_url || null)) { j.video_url = videoUrl; urlChanged = true; }
     });
+    if (urlChanged) await appendLog(req.params.id, videoUrl ? 'link del video per il QR code del PDF aggiornato' : 'link del video per il QR code del PDF tolto');
     res.json(publicJob(job));
   });
 

@@ -1,6 +1,6 @@
 // Pagina di un lavoro: intestazione, percorso in 4 passi (Analisi → Revisione → PDF → Video) e contenuto del passo.
 import { h, replace, icon, fmtDate, fmtEta, fmtDuration, fmtBytes, toast, confirmDialog, notice, progressBar, modal, imagePreview, plural } from './ui.js';
-import { get, post, del, upload, subscribe } from './api.js';
+import { get, post, patch, del, upload, subscribe } from './api.js';
 import { navigate, setLeaveGuard, state } from './app.js';
 import { renderReview } from './review.js';
 
@@ -224,16 +224,114 @@ function analisiView(ctx) {
   return { el, update: render };
 }
 
+// ------------------------------------------------------------------------------------------ link del video (QR nel PDF)
+
+/** Il PDF esistente ha un QR code diverso dal link attuale (link aggiunto, cambiato o tolto dopo averlo creato)? */
+export const isPdfLinkStale = (job) => !!job.outputs?.pdf && (job.video_url || null) !== (job.outputs?.pdf_video_url || null);
+
+/**
+ * Campo «Link al video di montaggio» (passi PDF e video). L'elemento resta lo stesso tra un aggiornamento e l'altro
+ * (quello che si sta scrivendo non si perde); update(job) aggiorna solo lo stato sotto il campo.
+ * @param {{ where: string, title?: string, intro?: string }} opts
+ */
+function videoLinkBox(ctx, { where, title = null, intro = null }) {
+  const id = `video-url-${where}`;
+  let saved = ctx.job().video_url || '';
+  const input = h('input', {
+    class: 'input', type: 'url', id, value: saved, placeholder: 'https://youtu.be/…', inputmode: 'url',
+    spellcheck: 'false', autocomplete: 'off', maxlength: '500', 'aria-describedby': `${id}-hint`,
+    oninput: () => input.classList.remove('invalid'),
+  });
+  const saveBtn = h('button', { class: 'btn btn-primary', type: 'submit' }, 'Salva');
+  const status = h('div');
+  const save = async (e) => {
+    e.preventDefault();
+    let v = input.value.trim();
+    // «youtu.be/abc» → «https://youtu.be/abc»
+    if (v && !/^[a-z][a-z0-9+.-]*:/i.test(v) && /^[^\s/]+\.[^\s/]+/.test(v)) v = `https://${v}`;
+    if (v === saved) { input.value = v; toast(v ? 'Il link è già salvato.' : 'Nessun link da salvare.', 'ok'); return; }
+    saveBtn.disabled = true;
+    try {
+      const j = await patch(`/api/jobs/${ctx.id}`, { video_url: v });
+      saved = j.video_url || '';
+      input.value = saved;
+      Object.assign(ctx.job(), { video_url: j.video_url, outputs: j.outputs });
+      update(ctx.job());
+      toast(saved ? (j.outputs?.pdf ? 'Link salvato: ricrea il PDF per aggiornare il QR code.' : 'Link salvato: il QR code sarà a pagina 2 del PDF.') : 'Link tolto: il PDF non avrà il QR code.', 'ok', 6000);
+    } catch (err) {
+      input.classList.add('invalid');
+      toast(err.message, 'err', 8000);
+      input.focus();
+    } finally {
+      saveBtn.disabled = false;
+    }
+  };
+  const el = h('div', { class: 'qr-link' },
+    title ? h('h3', null, icon('play', 18), title) : null,
+    intro ? h('p', { class: 'small muted' }, intro) : null,
+    h('form', { onsubmit: save, novalidate: true },
+      h('label', { class: 'field-label', for: id }, 'Link al video di montaggio (per il QR code nel PDF)'),
+      h('div', { class: 'input-group' }, input, saveBtn),
+      h('span', { class: 'field-hint', id: `${id}-hint` }, 'Carica il video su YouTube (anche “non in elenco”) o sul tuo sito e incolla qui il link')),
+    status);
+
+  function update(job) {
+    const server = job.video_url || '';
+    // aggiornato altrove (altra scheda): si allinea solo se qui non si sta scrivendo
+    if (server !== saved && document.activeElement !== input && input.value.trim() === saved) input.value = server;
+    saved = server;
+    const busy = runningTask(job) === 'pdf';
+    const o = job.outputs || {};
+    let content = null;
+    if (busy) {
+      content = h('p', { class: 'small muted qr-link-status' }, h('span', { class: 'spinner', style: 'width:14px;height:14px' }), 'Creazione del PDF in corso…');
+    } else if (isPdfLinkStale(job)) {
+      const redo = h('button', { class: 'btn btn-dark', type: 'button', onclick: () => startPdf(ctx) }, icon('refresh', 18), 'Ricrea il PDF');
+      const [t, p] = !job.video_url
+        ? ['Hai tolto il link del video', 'Il PDF attuale contiene ancora il QR code: ricrea il PDF per toglierlo.']
+        : o.pdf_video_url
+          ? ['Il link del video è cambiato', 'Il QR code del PDF attuale porta ancora al link precedente: ricrea il PDF per aggiornarlo.']
+          : ['Il PDF attuale non ha ancora il QR code', 'Ricrea il PDF per aggiungere il QR code del video a pagina 2.'];
+      content = notice('warn', t, h('p', p), h('div', { class: 'actions' }, redo));
+    } else if (job.video_url && o.pdf) {
+      content = h('p', { class: 'small qr-link-status' }, h('span', { class: 'pill pill-ok' }, icon('check', 14), 'QR code nel PDF, a pagina 2'),
+        h('span', { class: 'muted' }, 'Prima di stampare, inquadralo con il telefono per controllare che apra il video.'));
+    } else if (job.video_url) {
+      content = h('p', { class: 'small muted qr-link-status' }, 'Il QR code comparirà a pagina 2 quando crei il PDF.');
+    }
+    replace(status, content ? h('div', { class: 'mt-16' }, content) : null);
+  }
+  update(ctx.job());
+  return { el, update };
+}
+
+/** Ridisegna senza far perdere il cursore a un campo che sta dentro `keep` (spostato con il resto). */
+function keepFocus(keep, fn) {
+  const a = document.activeElement;
+  const inside = !!a && keep.contains(a);
+  const sel = inside && typeof a.selectionStart === 'number' ? [a.selectionStart, a.selectionEnd] : null;
+  fn();
+  if (inside && document.contains(a) && document.activeElement !== a) {
+    a.focus({ preventScroll: true });
+    if (sel) { try { a.setSelectionRange(sel[0], sel[1]); } catch { /* ignora */ } }
+  }
+}
+
 // ------------------------------------------------------------------------------------------ passo 3: PDF
 
 const pdfKey = (job) => [job.outputs?.pdf_at, job.outputs?.pdf_manual_at, job.manual_saved_at].join('|');
 
 function pdfView(ctx) {
   const el = h('div');
+  const link = videoLinkBox(ctx, { where: 'pdf', title: 'QR code del video (facoltativo)', intro: 'Con il link del video, a pagina 2 del PDF compare un QR code: inquadrandolo con il telefono si apre il video di montaggio.' });
   let mode = null;
   let card = null;
   let lastAt = null;
   const render = (job) => {
+    link.update(job);
+    keepFocus(link.el, () => draw(job));
+  };
+  const draw = (job) => {
     const t = runningTask(job);
     const m = t === 'pdf' ? 'running' : job.status === 'errore' && job.error?.task === 'pdf' ? 'error' : job.outputs?.pdf ? 'done' : 'empty';
     if (m === mode && m === 'running') { card.update(job); return; }
@@ -246,14 +344,15 @@ function pdfView(ctx) {
       card.update(job);
     } else if (m === 'error') {
       lastAt = null;
-      replace(el, errorCard(job, ctx, { title: 'Il PDF non è stato creato', back: true }), job.outputs?.pdf ? resultCard(job, { previous: true }) : null);
+      replace(el, errorCard(job, ctx, { title: 'Il PDF non è stato creato', back: true }), h('section', { class: 'card' }, link.el), job.outputs?.pdf ? resultCard(job, { previous: true }) : null);
     } else if (m === 'empty') {
       const btn = h('button', { class: 'btn btn-primary btn-lg', type: 'button', onclick: () => startPdf(ctx) }, icon('pdf', 20), 'Crea il PDF');
       replace(el, h('section', { class: 'card', style: 'text-align:center;padding:48px 24px' },
         h('div', { style: 'display:inline-grid;place-items:center;width:72px;height:72px;border-radius:18px;background:var(--accent-tint);color:var(--accent-ink);margin-bottom:14px' }, icon('pdf', 34)),
         h('h2', 'Il PDF non è ancora stato creato'),
         h('p', { class: 'muted', style: 'max-width:520px;margin:8px auto 22px' }, 'Quando la scheda è a posto, crea il manuale impaginato: copertina, componenti, ferramenta, passi illustrati e note.'),
-        h('div', { class: 'row', style: 'justify-content:center' }, btn, h('a', { class: 'btn btn-lg', href: `#/lavoro/${ctx.id}/revisione` }, icon('left', 18), 'Torna alla revisione'))));
+        h('div', { class: 'row', style: 'justify-content:center' }, btn, h('a', { class: 'btn btn-lg', href: `#/lavoro/${ctx.id}/revisione` }, icon('left', 18), 'Torna alla revisione')),
+        h('div', { class: 'qr-link-wrap' }, link.el)));
     } else {
       lastAt = pdfKey(job);
       replace(el, resultCard(job));
@@ -275,6 +374,7 @@ function pdfView(ctx) {
           h('p', 'Crea di nuovo il PDF per includere le ultime modifiche.'),
           h('div', { class: 'actions' }, h('button', { class: 'btn btn-dark', type: 'button', onclick: () => startPdf(ctx) }, icon('refresh', 18), 'Ricrea il PDF'))) : null,
         warningsNotice('Avvisi sull’impaginazione', job.warnings?.pdf),
+        previous ? null : link.el,
         h('iframe', { class: 'pdf-frame mt-16', src: `${src}#view=Fit&pagemode=none&navpanes=0`, title: 'Anteprima del PDF' }),
         h('div', { class: 'notice pdf-mobile-note mt-16' }, icon('info', 22), h('div', { class: 'grow' },
           h('p', { style: 'margin:0' }, 'Su questo schermo l’anteprima non si vede: usa «Apri in una scheda» o «Scarica il PDF».'))),
@@ -322,6 +422,8 @@ function videoView(ctx) {
   let sig = null;
   let card = null;
   let uploading = null; // { pct }
+  const link = videoLinkBox(ctx, { where: 'video', title: 'Video online e QR code nel PDF', intro: 'Quando il video è pronto, mettilo online e incolla qui il link: a pagina 2 del PDF comparirà un QR code che lo apre dal telefono.' });
+  const linkCard = h('section', { class: 'card' }, link.el);
 
   const modelSection = (job) => {
     const m = job.model3d || {};
@@ -486,6 +588,10 @@ function videoView(ctx) {
 
   let seenVideoAt = j0.outputs?.video_at || null;
   const render = (job) => {
+    link.update(job);
+    keepFocus(link.el, () => draw(job));
+  };
+  const draw = (job) => {
     const t = runningTask(job);
     const isErr = job.status === 'errore' && job.error?.task === 'video';
     // finita un'anteprima veloce: per il prossimo video si propone di nuovo la qualità definitiva
@@ -515,9 +621,11 @@ function videoView(ctx) {
     if (isErr) parts.push(errorCard(job, ctx, { title: 'Il video non è stato creato', back: true }));
     if (job.outputs?.video) {
       parts.push(resultCard(job));
+      parts.push(linkCard);
       parts.push(optionsCard(job, { title: 'Crea un altro video', sub: 'Cambia tipo o qualità e crealo di nuovo.' }));
     } else {
       parts.push(optionsCard(job, { title: 'Scegli il tipo di video', sub: 'Il video segue i passi della scheda che hai rivisto.' }));
+      parts.push(linkCard);
     }
     replace(el, parts);
   };

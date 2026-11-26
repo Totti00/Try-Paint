@@ -58,10 +58,10 @@ function makeHelpers(scene) {
   scene.add(mirror);
   helpers.MIRROR = (st) => { mirrorMat.opacity = 0.9 * st.o; mirror.visible = st.o > 0.002; };
 
-  // anello arancio sul foro di serraggio piu' interno di T2 (passo 4)
+  // anello arancio sul foro di serraggio di T2 (passo 4)
   const ringMat = new THREE.MeshBasicMaterial({ color: 0xff7e00, transparent: true, opacity: 0, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
   const ring = new THREE.Mesh(new THREE.RingGeometry(8, 12, 32).rotateX(-Math.PI / 2), ringMat);
-  ring.position.set(...JOINTS.holeT2_L_inner).add(new THREE.Vector3(0, 0.8, 0));
+  ring.position.set(...JOINTS.holeT2_L).add(new THREE.Vector3(0, 0.8, 0));
   ring.renderOrder = 3;
   scene.add(ring);
   helpers.HOLEMARK = (st, t) => {
@@ -69,6 +69,23 @@ function makeHelpers(scene) {
     ring.visible = st.o > 0.002;
     const k = 1 + 0.18 * Math.sin(t * 9);
     ring.scale.set(k, 1, k);
+  };
+
+  // freccia "spingere fino in fondo" adagiata sul dorso di T2 (passo 4): punta verso F1_L,
+  // segue lo spostamento di T2 (canale p) e sfuma (o). T2 e' un profilo uniforme: senza la
+  // freccia la corsa di 30 mm nel primo piano non si leggerebbe.
+  const as = new THREE.Shape();
+  [[0, 0], [24, 13], [24, 5], [70, 5], [70, -5], [24, -5], [24, -13], [0, 0]].forEach(([x, y], i) => (i ? as.lineTo(x, y) : as.moveTo(x, y)));
+  const arrowMat = new THREE.MeshBasicMaterial({ color: 0xff7e00, transparent: true, opacity: 0, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+  const arrow = new THREE.Mesh(new THREE.ShapeGeometry(as).rotateX(-Math.PI / 2), arrowMat);
+  const arrowBase = new THREE.Vector3(...JOINTS.t2Top_L).add(new THREE.Vector3(14, 0.8, 0));
+  arrow.renderOrder = 3;
+  arrow.visible = false;
+  scene.add(arrow);
+  helpers.PUSHARROW = (st) => {
+    arrowMat.opacity = st.o;
+    arrow.visible = st.o > 0.002;
+    arrow.position.copy(arrowBase).add(new THREE.Vector3(...st.p));
   };
   return helpers;
 }

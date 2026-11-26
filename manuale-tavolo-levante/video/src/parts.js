@@ -37,7 +37,7 @@ export const DIMS = {
   bracket: { w: 36, leg: 40, t: 3, yLeg: 698 },  // yLeg = faccia superiore della gamba orizzontale = fondo dei listelli
   slot: { w: 26, h: 88 },                     // asola verticale del montante (T1: 22 x 80)
   holesT1: [28, 68],                          // profondita' fori viti T1 dentro il montante (da x=±800)
-  holesT2: [15, 35],                          // fori T2 sul traverso basso del fianco (35 = piu' interno)
+  holeT2: 35,                                 // UNICO foro di serraggio di T2 sul traverso basso del fianco (dalla faccia interna)
 };
 
 const XF = DIMS.L / 2 - DIMS.frame.depth;     // 800: faccia interna dei fianchi
@@ -50,8 +50,8 @@ const T1Z = DIMS.t1.zIn + DIMS.t1.t / 2;      // 363: asse di T1 (e dell'asola) 
 export const JOINTS = {
   slotT1_L_front: [-XF, T1Y, T1Z],            // asola del montante anteriore di F1_L
   holesT1_L_front: [-XF - 48, HY, DIMS.W / 2 - DIMS.frame.tube],    // centro delle 2 viti M8 01-02
-  railT2_L: [-XF - 15, 40, 0],
-  holeT2_L_inner: [-XF - DIMS.holesT2[1], DIMS.frame.tube, 0],      // foro piu' interno (vite M8_09)
+  holeT2_L: [-XF - DIMS.holeT2, DIMS.frame.tube, 0],              // foro di serraggio di T2 su F1_L (vite M8_09)
+  t2Top_L: [-XF, DIMS.t2.y + DIMS.t2.h / 2, 0],                  // dorso di T2 dove esce dall'asola di F1_L (freccia del passo 4)
   bracket_L_back: [-755, DIMS.bracket.yLeg, -330],                 // angolare + vite WS_1 (fronte a tavolo capovolto)
 };
 
@@ -196,10 +196,8 @@ function buildFrame(THREE, M, side) {
   }
   // asola orizzontale per T2 al centro del traverso basso
   slots.push(placeFlat(THREE, new THREE.ShapeGeometry(roundedRectShape(THREE, 44, 24, 5), 4), faceN, [xFace, 25, 0]));
-  // fori di serraggio T2 sulla faccia superiore del traverso basso
-  for (const hd of DIMS.holesT2) {
-    decals.push(placeFlat(THREE, new THREE.CircleGeometry(4.6, 20), [0, 1, 0], [side * (XF + hd), tb, 0]));
-  }
+  // UN solo foro di serraggio per T2 sulla faccia superiore del traverso basso
+  decals.push(placeFlat(THREE, new THREE.CircleGeometry(4.6, 20), [0, 1, 0], [side * (XF + DIMS.holeT2), tb, 0]));
   grp.add(mesh(THREE, mergeGeometries(decals), M.hole, { cast: false, noEdges: true }));
   grp.add(mesh(THREE, mergeGeometries(slots), M.slot, { cast: false, noEdges: true }));
   return grp;
@@ -253,7 +251,7 @@ function buildT2(THREE, M) {
   grp.name = 'T2';
   grp.add(mesh(THREE, boxAt(THREE, len, h, w, 0, y, 0), M.alu));
   const decals = [];
-  for (const sx of [-1, 1]) decals.push(placeFlat(THREE, new THREE.CircleGeometry(4.6, 20), [0, 1, 0], [sx * (XF + DIMS.holesT2[1]), y + h / 2, 0], 0.3));
+  for (const sx of [-1, 1]) decals.push(placeFlat(THREE, new THREE.CircleGeometry(4.6, 20), [0, 1, 0], [sx * (XF + DIMS.holeT2), y + h / 2, 0], 0.3));
   grp.add(mesh(THREE, mergeGeometries(decals), M.hole, { cast: false, noEdges: true }));
   return grp;
 }
@@ -346,7 +344,7 @@ export function fastenerLayout() {
   for (const sx of [-1, 1]) for (const sz of [1, -1]) for (const hd of DIMS.holesT1) {
     m8.push({ axis: [0, 0, sz], pos: [sx * (XF + hd), HY, sz * (W / 2 - tb)] });
   }
-  for (const sx of [-1, 1]) m8.push({ axis: [0, -1, 0], pos: [sx * (XF + DIMS.holesT2[1]), tb, 0] });
+  for (const sx of [-1, 1]) m8.push({ axis: [0, -1, 0], pos: [sx * (XF + DIMS.holeT2), tb, 0] });
   // viti da legno: nell'asola della gamba orizzontale degli angolari, dal basso verso il listello
   const ws = [];
   const yLeg = DIMS.bracket.yLeg - DIMS.bracket.t;

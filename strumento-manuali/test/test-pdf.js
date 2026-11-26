@@ -21,6 +21,8 @@ import sharp from 'sharp';
 import { chromium } from 'playwright';
 import { ingestDocument, prepareImages, IngestError } from '../src/ingest/index.js';
 import { generatePdf } from '../src/pdf/generate.js';
+import { normalizeVideoUrl, VideoUrlError } from '../src/pdf/qr.js';
+import { decodeQrPng, renderPdfPage } from './qr-decode.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const FIX = path.join(ROOT, 'test', 'fixtures');
@@ -331,6 +333,97 @@ async function main() {
     checkFonts(pdf);
     console.log(`       ${lay.pages.length} pagine; figure ridotte: ${lay.scaled.map((s) => `${s.block} ${Math.round(s.scale * 100)}%`).join(', ') || 'nessuna'}`);
     previews(pdf, 'stress');
+  });
+
+  console.log('\n(c) QR code del video di montaggio (pagina 2)');
+  const VIDEO_URL = 'https://www.youtube.com/watch?v=Levante-2026';
+  await test('link del video: http/https, ≤ 500 caratteri, vuoto → null, errori in italiano', async () => {
+    assert.equal(normalizeVideoUrl('  https://youtu.be/abc  '), 'https://youtu.be/abc');
+    assert.equal(normalizeVideoUrl('http://esempio.it/v'), 'http://esempio.it/v');
+    assert.equal(normalizeVideoUrl(''), null);
+    assert.equal(normalizeVideoUrl('   '), null);
+    assert.equal(normalizeVideoUrl(null), null);
+    for (const bad of ['ftp://esempio.it/v', 'javascript:alert(1)', 'youtu.be/abc', 'https://esempio', 'https://a b.it', `https://esempio.it/${'x'.repeat(490)}`, 42, 'https://utente:pw@esempio.it/v']) {
+      assert.throws(() => normalizeVideoUrl(bad), (e) => e instanceof VideoUrlError && /link del video/i.test(e.message), `accettato: ${String(bad).slice(0, 40)}`);
+    }
+  });
+
+  await test('PDF con il QR del video: riquadro in fondo a pagina 2, QR vettoriale leggibile, nulla sborda', async () => {
+    const job = await freshDir(path.join(WORK, 'job-qr'));
+    await fs.cp(path.join(jobLev, 'immagini'), path.join(job, 'immagini'), { recursive: true });
+    const pdf = await generatePdf(job, levanteManual, { videoUrl: VIDEO_URL });
+    const lay = await readJson(path.join(job, 'pdf-build', 'layout.json'));
+    assert.deepEqual(lay.overflow, [], JSON.stringify(lay.overflow));
+    assert.deepEqual(lay.forced, []);
+    assert.deepEqual(lay.warnings, []);
+    assert.equal(lay.video_url, VIDEO_URL);
+    assert.equal(lay.qr?.page, 2, `QR a pagina ${lay.qr?.page}`);
+    assert.equal(lay.qr.url, VIDEO_URL);
+    assert.ok(lay.qr.size_mm >= 25, `QR troppo piccolo: ${lay.qr.size_mm} mm`);
+    assert.equal(lay.pages[1].chapter, 'contenuto');
+    const plain = await readJson(path.join(jobLev, 'pdf-build', 'layout.json'));
+    assert.equal(lay.pages.length, plain.pages.length, 'il QR non deve aggiungere pagine');
+    const html = await fs.readFile(path.join(job, 'pdf-build', 'manuale.impaginato.html'), 'utf8');
+    assert.equal((html.match(/class="qr-box"/g) || []).length, 1, 'un solo riquadro del QR');
+    assert.equal((html.match(/<svg class="qr-svg"/g) || []).length, 1, 'QR come SVG (vettoriale)');
+    assert.match(html, /Guarda il video di montaggio/);
+    assert.match(html, /Inquadra il codice con la fotocamera del telefono/);
+    assert.match(html, /<span class="qr-url">youtube\.com\/watch\?v=Levante-2026<\/span>/);
+    // il riquadro sta nella seconda pagina del libro (dopo la copertina)
+    const pagesHtml = html.split('<section class="page ').slice(1);
+    assert.match(pagesHtml[1], /^inner has-qr"/);
+    assert.ok(pagesHtml[1].includes('class="qr-box"') && !pagesHtml.slice(2).some((p) => p.includes('class="qr-box"')));
+    const chk = await browserLayoutCheck(path.join(job, 'pdf-build', 'manuale.impaginato.html'));
+    assert.deepEqual(chk.problems, []);
+    assert.deepEqual(chk.verify, []);
+    if (hasTool('pdfimages')) {
+      const imgs = (f) => run('pdfimages', ['-list', '-f', '2', '-l', '2', f]).trim().split('\n').length - 2;
+      assert.equal(imgs(pdf), imgs(levPdf), 'il QR non deve essere un’immagine raster');
+    }
+    const png = renderPdfPage(pdf, 2, path.join(job, 'pagina2'));
+    if (!png) { console.log('       lettura del QR saltata (pdftoppm non disponibile)'); return; }
+    const text = await decodeQrPng(png);
+    if (text === undefined) { console.log('       lettura del QR saltata (nessun lettore: npm install per "jsqr")'); return; }
+    assert.equal(text, VIDEO_URL, 'il QR stampato non porta al link');
+    console.log(`       QR letto dalla pagina 2 a 150 dpi: ${text}`);
+    previews(pdf, 'qr');
+  });
+
+  await test('QR con la fixture "stress" e con un link lunghissimo: sempre a pagina 2, nessuno sbordamento', async () => {
+    const job = await freshDir(path.join(WORK, 'job-qr-stress'));
+    await fs.cp(path.join(jobLev, 'immagini'), path.join(job, 'immagini'), { recursive: true });
+    const long = `https://www.esempio.it/assistenza/video/${'montaggio-del-set-da-giardino-grecale-'.repeat(11)}fine?lingua=it&origine=manuale`;
+    assert.ok(long.length > 450 && long.length <= 500, String(long.length));
+    const pdf = await generatePdf(job, stress, { videoUrl: long });
+    const lay = await readJson(path.join(job, 'pdf-build', 'layout.json'));
+    assert.deepEqual(lay.overflow, [], JSON.stringify(lay.overflow));
+    assert.deepEqual(lay.forced, []);
+    assert.equal(lay.qr?.page, 2);
+    assert.ok(lay.qr.size_mm > 32, `link lungo: QR più grande (${lay.qr.size_mm} mm)`);
+    const chk = await browserLayoutCheck(path.join(job, 'pdf-build', 'manuale.impaginato.html'));
+    assert.deepEqual(chk.problems, []);
+    assert.deepEqual(chk.verify, []);
+    const png = renderPdfPage(pdf, 2, path.join(job, 'pagina2'));
+    const text = png ? await decodeQrPng(png) : undefined;
+    if (text !== undefined) assert.equal(text, long);
+    previews(pdf, 'qr-stress');
+  });
+
+  await test('link non valido o assente: nessun QR (con avviso se non valido)', async () => {
+    const job = await freshDir(path.join(WORK, 'job-qr-no'));
+    await fs.cp(path.join(jobLev, 'immagini'), path.join(job, 'immagini'), { recursive: true });
+    await generatePdf(job, levanteManual, { videoUrl: 'ftp://esempio.it/video' });
+    let lay = await readJson(path.join(job, 'pdf-build', 'layout.json'));
+    assert.ok(lay.warnings.some((w) => /QR code del video non inserito: .*https:\/\//.test(w)), JSON.stringify(lay.warnings));
+    assert.equal(lay.qr, undefined);
+    let html = await fs.readFile(path.join(job, 'pdf-build', 'manuale.impaginato.html'), 'utf8');
+    assert.ok(!html.includes('class="qr-box"') && !html.includes('tpl-qr'));
+    await generatePdf(job, levanteManual, { videoUrl: '' });
+    lay = await readJson(path.join(job, 'pdf-build', 'layout.json'));
+    assert.deepEqual(lay.warnings, []);
+    assert.equal(lay.video_url, null);
+    html = await fs.readFile(path.join(job, 'pdf-build', 'manuale.impaginato.html'), 'utf8');
+    assert.ok(!html.includes('class="qr-box"'));
   });
 
   await test('passo con testo lunghissimo: prosegue nella pagina dopo ("segue"), mai sbordamenti', async () => {

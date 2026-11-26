@@ -32,7 +32,7 @@
 </section>
 
 <!-- ============================================================ 2 · CONTENUTO -->
-<section class="page inner">
+<section class="page inner has-qr">
   <header class="run-head">
     <div class="brand"><svg class="bars" viewBox="0 0 24 18" aria-hidden="true"><rect width="24" height="4"/><rect y="7" width="24" height="4"/><rect y="14" width="24" height="4"/></svg>Istruzioni di montaggio</div>
     <div class="section-name">Prima di iniziare</div>
@@ -78,6 +78,18 @@
         <div class="card-txt"><span class="code">P1</span><p>Piano tavolo a doghe in legno</p><span class="qty-inline">×1</span></div>
       </div>
     </div>
+
+    <!-- QR code del video: il link sta solo in tools/video_url.txt (node tools/genera_qr.cjs <link>);
+         genera_pdf.cjs scrive qui sotto il link e toglie il riquadro finché il link è quello segnaposto -->
+    <aside class="qr-box">
+      <div class="qr-code"><img src="assets/final/qr_video.svg" alt="QR code del video di montaggio"></div>
+      <div class="qr-txt">
+        <span class="qr-tag"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 .8v8.4L9 5z"/></svg>Video</span>
+        <h3>Guarda il video di montaggio</h3>
+        <p>Inquadra il codice con la fotocamera del telefono</p>
+        <span class="qr-url" data-video-url>esempio.it/video-montaggio-tavolo-levante</span>
+      </div>
+    </aside>
   </main>
   <footer class="run-foot"><span>Levante · Libeccio · Maestrale · Gradisca · Volpina</span><span class="folio">02</span></footer>
 </section>

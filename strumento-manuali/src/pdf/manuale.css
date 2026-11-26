@@ -337,6 +337,28 @@ h2.sec .sec-n {
 .nb-img img { max-width: 100%; object-fit: contain; }
 .nb-img.bleed { padding: 0; }
 
+/* ---------------------------------------------------- QR CODE DEL VIDEO (pagina 2) */
+/* in fondo alla prima pagina interna; l'impaginatore accorcia l'area utile (.content) di conseguenza */
+.qr-box {
+  position: absolute; left: 18mm; right: 18mm; bottom: 19mm;
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8mm; align-items: center;
+  background: var(--beige-soft); border-radius: 3mm; padding: 4.5mm 8mm 4.5mm 4.5mm;
+}
+.qr-code { width: var(--qr-size, 32mm); height: var(--qr-size, 32mm); background: #fff; border-radius: 1.6mm; overflow: hidden; }
+.qr-code svg { display: block; width: 100%; height: 100%; }
+.qr-tag {
+  display: inline-flex; align-items: center; gap: 1.6mm;
+  font-family: var(--head); font-weight: 800; font-size: 9pt; letter-spacing: .12em; text-transform: uppercase;
+  color: #fff; background: var(--accent-ink); border-radius: 1mm; padding: .9mm 2.2mm .7mm 1.8mm; margin-bottom: 3mm;
+}
+.qr-tag svg { width: 2.6mm; height: 2.6mm; fill: currentColor; }
+.qr-box h3 { font-family: var(--head); font-weight: 700; font-size: 17pt; line-height: 1.1; color: var(--ink); margin-bottom: 1.6mm; }
+.qr-box p { font-size: 10.5pt; }
+.qr-url {
+  display: block; margin-top: 2.6mm; padding-top: 2.4mm; border-top: .25mm solid var(--beige);
+  font-size: 8pt; letter-spacing: .04em; color: var(--muted); overflow-wrap: anywhere;
+}
+
 /* -------------------------------------------------------------------- RETRO */
 .back { background: var(--back-bg, var(--beige)); display: flex; align-items: center; justify-content: center; }
 .back-logos { max-width: 128mm; max-height: 150mm; width: auto; height: auto; margin-top: -30mm; }

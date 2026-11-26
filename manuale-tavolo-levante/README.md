@@ -10,7 +10,9 @@ Nuova impaginazione del manuale di montaggio dei **Tavoli Levante, Libeccio e Ma
 | `assets/estratte/` | Immagini estratte così come sono dal PDF originale |
 | `assets/img/` → `assets/img2x/` → `assets/final/` | Immagini rifilate → ingrandite 2× (super-resolution EDSR) → versioni finali con sfondo bianco puro |
 | `assets/fonts/` | Font Barlow (licenza libera SIL OFL) |
-| `tools/` | Script per rigenerare immagini e PDF |
+| `tools/` | Script per rigenerare immagini, QR code e PDF |
+| `tools/video_url.txt` | Link del video di montaggio usato per il QR code (lo scrive `tools/genera_qr.cjs`) |
+| `assets/final/qr_video.svg` | QR code del video (vettoriale), stampato in fondo alla pagina 2 |
 | `video/montaggio-tavolo-levante.mp4` | **Video di montaggio** (1920×1080, 30 fps, 96 s, didascalie in italiano) |
 | `video/montaggio-tavolo-levante-720p.mp4` | Versione leggera (4 MB) da mandare su WhatsApp/email |
 | `video/` | Sorgente dell'animazione 3D (vedi `video/README.md`) |
@@ -18,7 +20,7 @@ Nuova impaginazione del manuale di montaggio dei **Tavoli Levante, Libeccio e Ma
 ## Struttura del nuovo manuale
 
 1. **Copertina**: titolo, elenco dei prodotti (tavoli / panche), immagine del prodotto
-2. **Contenuto della confezione**: ferramenta con quantità e componenti F1, T1, T2, P1
+2. **Contenuto della confezione**: ferramenta con quantità e componenti F1, T1, T2, P1; in fondo il **QR code del video di montaggio** (quando c’è il link, vedi sotto)
 3. **Sequenza di montaggio**: panoramica dei 7 passi, divisi in due fasi
 4. **Passi 1–2**: fianchi speculari, inserimento dei traversi superiori
 5. **Passi 3–4**: viti senza serraggio, traverso inferiore
@@ -54,3 +56,26 @@ node tools/genera_pdf.cjs              # crea Istruzioni_Montaggio_Tavolo_Levant
 ```
 
 Per cambiare un testo basta modificarlo in `manuale.html`, che è un file di testo normale, e rigenerare il PDF.
+
+## QR code del video di montaggio (pagina 2)
+
+In fondo alla pagina 2 c’è un riquadro con il QR code che apre il video di montaggio. Un QR code contiene un
+link, quindi prima bisogna **mettere il video online**: su YouTube (va bene anche «non in elenco», così si vede
+solo con il link) oppure sul sito. Poi, con il link del video, bastano due comandi:
+
+```bash
+cd manuale-tavolo-levante
+node tools/genera_qr.cjs <link> && node tools/genera_pdf.cjs
+# esempio: node tools/genera_qr.cjs https://youtu.be/abcdefghijk && node tools/genera_pdf.cjs
+```
+
+- `genera_qr.cjs` controlla il link (deve iniziare con `https://` o `http://`), crea `assets/final/qr_video.svg`
+  (vettoriale, correzione d’errore M, margine bianco di 4 moduli, stampato 32×32 mm) e salva il link in
+  `tools/video_url.txt`. È l’**unico posto** dove sta il link: anche il testo stampato sotto il titolo del riquadro
+  viene da lì. Usa il pacchetto npm `qrcode` di `../strumento-manuali` (se manca: `npm install` in quella cartella).
+- Oggi in `tools/video_url.txt` c’è il link **segnaposto** `https://esempio.it/video-montaggio-tavolo-levante`.
+  Finché resta quello, `genera_pdf.cjs` **non stampa il riquadro** e la pagina 2 resta com’era; per vedere
+  l’impaginazione con il QR segnaposto: `node tools/genera_pdf.cjs --anteprima /percorso/anteprima.pdf`.
+- `genera_pdf.cjs` si ferma con un messaggio se il QR non corrisponde al link salvato o se qualcosa esce
+  dall’area utile della pagina.
+- Prima di mandare il PDF in stampa conviene inquadrare il QR con il telefono e controllare che si apra il video.

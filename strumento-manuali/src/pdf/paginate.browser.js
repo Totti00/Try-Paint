@@ -5,6 +5,8 @@
  *   prosegue nella pagina dopo ("segue");
  * - bilanciamento: piuttosto che lasciare un blocco piccolo da solo in fondo (o un buco grande), le figure
  *   della pagina si riducono leggermente (al massimo del 18%);
+ * - QR code del video (se c'è #tpl-qr): riquadro in fondo alla prima pagina interna (pagina 2), che ha quindi
+ *   un'area utile più corta;
  * - alla fine: numeri di pagina, testate, rimandi "pag. N" della panoramica, verifica che nulla sbordi.
  * Espone window.__paginate() → resoconto (JSON) e window.__verifyLayout().
  */
@@ -14,6 +16,7 @@
   var SAFETY = 0.8 * MM;     // margine di sicurezza in fondo alla pagina (px)
   var BALANCE_FLOOR = 0.82;  // riduzione massima delle figure per bilanciare le pagine
   var CW = 174;              // larghezza utile in mm (misurata davvero all'avvio)
+  var QR_GAP = 7;            // mm tra l'area utile e il riquadro del QR code
   var meta = {};
   var report = { pages: [], scaled: [], splits: [], forced: [], overflow: [], stepPages: {} };
 
@@ -152,13 +155,23 @@
   function shrinkable(blk) { return !!layouts[blk.dataset.kind] && (+blk.dataset.smin || 1) < 1; }
 
   // ------------------------------------------------------------------ pagine
-  var book, backPage, tpl, pages = [];
+  var book, backPage, tpl, qrTpl = null, qrPage = null, pages = [];
+  /** Riquadro del QR in fondo alla pagina: l'area utile finisce QR_GAP mm sopra il riquadro. */
+  function attachQr(pg) {
+    var box = qrTpl.content.firstElementChild.cloneNode(true);
+    pg.el.appendChild(box);
+    pg.el.classList.add('has-qr');
+    var pr = pg.el.getBoundingClientRect(), br = box.getBoundingClientRect();
+    pg.content.style.bottom = mm((pr.bottom - br.top) / MM + QR_GAP);
+    qrPage = pg;
+  }
   function newPage(chapter, continued) {
     var el = tpl.content.firstElementChild.cloneNode(true);
     el.dataset.chapter = chapter.name;
     book.insertBefore(el, backPage);
     var pg = { el: el, content: el.querySelector('.content'), chapter: chapter.name };
     pages.push(pg);
+    if (qrTpl && !qrPage && chapter.name !== 'probe') attachQr(pg);
     if (continued && chapter.title) {
       var t = chapter.title.cloneNode(true);
       t.classList.add('cont');
@@ -428,6 +441,12 @@
           if (r.bottom > cr.bottom + 0.5 || r.right > cr.right + 0.5) problems.push({ page: idx + 1, kind: 'blocco-sborda', block: blockName(b) });
         });
       }
+      // riquadro del QR: dentro la pagina, sotto l'area utile, sopra il piè di pagina
+      Array.prototype.forEach.call(page.querySelectorAll('.qr-box'), function (q) {
+        var qr = q.getBoundingClientRect(), foot = page.querySelector('.run-foot');
+        if (!inside(qr, pr, 0.5) || (content && content.getBoundingClientRect().bottom > qr.top + 0.5) ||
+            (foot && foot.getBoundingClientRect().top < qr.bottom - 0.5)) problems.push({ page: idx + 1, kind: 'qr-sovrapposto' });
+      });
     });
     // il numero del passo non deve invadere il testo
     Array.prototype.forEach.call(document.querySelectorAll('#book .step-num'), function (n) {
@@ -447,6 +466,7 @@
     book = document.getElementById('book');
     backPage = book.querySelector('.page.back');
     tpl = document.getElementById('tpl-page');
+    qrTpl = document.getElementById('tpl-qr');
     fitCover();
 
     var chapters = Array.prototype.map.call(document.querySelectorAll('#flow > .chapter'), function (ch) {
@@ -486,6 +506,7 @@
     });
     var flow = document.getElementById('flow');
     if (flow) flow.remove();
+    if (qrTpl) qrTpl.remove();
 
     // numerazione, testate, rimandi
     var all = Array.prototype.slice.call(document.querySelectorAll('#book > .page'));
@@ -507,6 +528,10 @@
       var n = report.stepPages[el.dataset.ref];
       el.textContent = n ? 'pag. ' + n : '';
     });
+    if (qrPage) {
+      var qb = qrPage.el.querySelector('.qr-box');
+      report.qr = { page: +qrPage.el.dataset.n, url: qb.dataset.videoUrl, size_mm: Math.round(qb.querySelector('.qr-code').getBoundingClientRect().width / MM * 10) / 10 };
+    }
 
     all.forEach(function (p) {
       var entry = { n: +p.dataset.n, kind: p.dataset.kind || 'inner', chapter: p.dataset.chapter || null };

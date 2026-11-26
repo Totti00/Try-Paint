@@ -37,8 +37,9 @@ if ! node -e "const [a,b]=process.versions.node.split('.').map(Number);process.e
   exit 1
 fi
 
-if [ ! -d node_modules/express ]; then
-  echo "  Prima installazione dei componenti (serve Internet, qualche minuto, solo la prima volta)…"
+# componenti mancanti (prima volta, o dopo un aggiornamento che ne ha aggiunti di nuovi)
+if ! node -e "const fs=require('fs');process.exit(Object.keys(require('./package.json').dependencies||{}).every((d)=>fs.existsSync('node_modules/'+d+'/package.json'))?0:1)" >/dev/null 2>&1; then
+  echo "  Installazione dei componenti (serve Internet, qualche minuto: la prima volta o dopo un aggiornamento)…"
   echo
   npm install --no-fund --no-audit || { echo; echo "  L’installazione dei componenti non è riuscita: controlla la connessione a Internet e riprova."; exit 1; }
 fi

@@ -1,4 +1,5 @@
-// generatePdf(jobDir, manual, { outPath, theme, onProgress, signal }) → outPath   (signal: AbortSignal facoltativo)
+// generatePdf(jobDir, manual, { outPath, theme, videoUrl, onProgress, signal }) → outPath   (signal: AbortSignal facoltativo)
+// videoUrl (facoltativo): link del video di montaggio → riquadro con il QR code in fondo alla pagina 2.
 // ManualData → HTML (template.js) → impaginazione automatica in Chromium (paginate.browser.js) → PDF A4
 // con i font Barlow incorporati. File di lavoro in <lavoro>/pdf-build/ (HTML, HTML impaginato, layout.json).
 import fs from 'node:fs/promises';
@@ -9,6 +10,7 @@ import { makeProgress, ensureDir, writeJson } from '../ingest/common.js';
 import { normalizeTheme, themeCss } from './theme.js';
 import { buildManualHtml } from './template.js';
 import { resolveImageFile, analyzeImage, prepareBackLogo } from './assets.js';
+import { normalizeVideoUrl, buildQrSvg, shortUrl } from './qr.js';
 import { renameWithRetry, tmpName } from '../fsutil.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -84,7 +86,7 @@ function zodMessage(error) {
   return (error?.issues || []).slice(0, 4).map((i) => `${(i.path || []).join('.') || 'radice'}: ${i.message}`).join('; ');
 }
 
-export async function generatePdf(jobDir, manual, { outPath, theme, onProgress, signal } = {}) {
+export async function generatePdf(jobDir, manual, { outPath, theme, videoUrl = null, onProgress, signal } = {}) {
   const progress = makeProgress(onProgress);
   const aborted = () => { if (signal?.aborted) { const e = new Error('Creazione del PDF annullata.'); e.name = 'AbortError'; throw e; } };
   aborted();
@@ -118,13 +120,21 @@ export async function generatePdf(jobDir, manual, { outPath, theme, onProgress, 
     warnings.push(`Logo non elaborato (${err?.message || err}): retro senza logo.`);
   }
 
+  let qr = null;
+  try {
+    const url = normalizeVideoUrl(videoUrl);
+    if (url) qr = { ...(await buildQrSvg(url)), url, text: shortUrl(url) };
+  } catch (err) {
+    warnings.push(`QR code del video non inserito: ${err?.message || err}`);
+  }
+
   progress(12, 'Composizione delle pagine…');
   const [css, script, fontCss] = await Promise.all([
     fs.readFile(path.join(HERE, 'manuale.css'), 'utf8'),
     fs.readFile(path.join(HERE, 'paginate.browser.js'), 'utf8'),
     buildFontCss(),
   ]);
-  const html = buildManualHtml(m, { images, css, script, fontCss, themeCss: themeCss(t), backLogo });
+  const html = buildManualHtml(m, { images, css, script, fontCss, themeCss: themeCss(t), backLogo, qr });
   const htmlPath = path.join(buildDir, 'manuale.html');
   await fs.writeFile(htmlPath, html, 'utf8');
 
@@ -162,9 +172,11 @@ export async function generatePdf(jobDir, manual, { outPath, theme, onProgress, 
     }
     if (report.overflow.length) warnings.push(`Impaginazione: ${report.overflow.length} elementi escono dall’area utile (vedi pdf-build/layout.json).`);
     if (report.forced.length) warnings.push(`Impaginazione: blocchi troppo grandi anche ridotti: ${report.forced.join(', ')}.`);
+    if (qr && !report.qr) warnings.push('QR code del video non inserito: nessuna pagina interna in cui metterlo.');
     await writeJson(path.join(buildDir, 'layout.json'), {
       created_at: new Date().toISOString(), out, pages: report.pages.length, warnings,
       back_logo: backLogo ? { kind: backLogo.kind, bg: backLogo.bg } : null,
+      video_url: qr ? qr.url : null,
       images: Object.fromEntries([...images].map(([id, v]) => [id, { width: v.width, height: v.height, bleed: v.bleed }])),
       ...report,
     });

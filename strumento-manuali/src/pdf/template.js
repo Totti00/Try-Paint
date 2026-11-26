@@ -6,6 +6,7 @@ import { escapeHtml as esc, inline, paragraphs, warningHtml, shortLabel, hardwar
 const BARS_SVG = '<svg class="bars" viewBox="0 0 24 18" aria-hidden="true"><rect width="24" height="4"/><rect y="7" width="24" height="4"/><rect y="14" width="24" height="4"/></svg>';
 const WARN_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 1.5 21h21L12 2.5Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9.5v5.5M12 17.6v.4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
 const ICON_HW = '<svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"><path d="M14 6h20l-3 7H17z"/><path d="M19 13v29l5 4 5-4V13"/><path d="M19 20l10 4M19 27l10 4M19 34l10 4"/></svg>';
+const PLAY_SVG = '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 .8v8.4L9 5z"/></svg>';
 const ICON_COMP = '<svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"><path d="M24 4 42 14v20L24 44 6 34V14z"/><path d="M6 14l18 10 18-10M24 24v20"/></svg>';
 
 /** Niente parole brevi ("di", "e", "a"…) a fine riga nei titoli grandi: spazio non separabile dopo di esse. */
@@ -27,7 +28,8 @@ const chunk = (arr, n) => Array.from({ length: Math.ceil(arr.length / n) }, (_, 
 
 /**
  * @param {object} manual  ManualData
- * @param {object} ctx     { images: Map<id,{src,width,height,aspect,bleed}>, css, fontCss, themeCss, script, backLogo }
+ * @param {object} ctx     { images: Map<id,{src,width,height,aspect,bleed}>, css, fontCss, themeCss, script, backLogo,
+ *                           qr: { svg, url, text, sizeMm } | null }  (qr: riquadro del video, in fondo alla prima pagina interna)
  */
 export function buildManualHtml(manual, ctx) {
   const images = ctx.images || new Map();
@@ -264,6 +266,13 @@ export function buildManualHtml(manual, ctx) {
   <footer class="run-foot"><span class="foot-text">${esc(footer)}</span><span class="folio"></span></footer>
 </section></template>`;
 
+  // QR code del video: l'impaginatore lo mette in fondo alla prima pagina interna (pagina 2) e accorcia l'area utile
+  const qr = ctx.qr;
+  const qrTpl = qr ? `<template id="tpl-qr"><aside class="qr-box" style="--qr-size:${qr.sizeMm}mm" data-video-url="${esc(qr.url)}">
+  <div class="qr-code">${qr.svg}</div>
+  <div class="qr-txt"><span class="qr-tag">${PLAY_SVG}Video</span><h3>Guarda il video di montaggio</h3><p>Inquadra il codice con la fotocamera del telefono</p><span class="qr-url">${esc(qr.text)}</span></div>
+</aside></template>` : '';
+
   const flow = chapters.map((c) =>
     `<div class="chapter" data-chapter="${c.name}" data-section="${esc(c.section)}">\n${c.blocks.join('\n')}\n</div>`).join('\n');
 
@@ -281,7 +290,7 @@ export function buildManualHtml(manual, ctx) {
 <body>
 <div id="book">${cover}${back}</div>
 <div id="flow">${flow}</div>
-${tpl}
+${tpl}${qrTpl}
 <script type="application/json" id="meta">${metaJson}</script>
 <script>${ctx.script || ''}</script>
 </body>
