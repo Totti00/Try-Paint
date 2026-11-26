@@ -239,7 +239,7 @@ function videoLinkBox(ctx, { where, title = null, intro = null }) {
   let saved = ctx.job().video_url || '';
   const input = h('input', {
     class: 'input', type: 'url', id, value: saved, placeholder: 'https://youtu.be/…', inputmode: 'url',
-    spellcheck: 'false', autocomplete: 'off', maxlength: '500', 'aria-describedby': `${id}-hint`,
+    spellcheck: 'false', autocomplete: 'off', 'aria-describedby': `${id}-hint`,
     oninput: () => input.classList.remove('invalid'),
   });
   const saveBtn = h('button', { class: 'btn btn-primary', type: 'submit' }, 'Salva');

@@ -16,6 +16,7 @@ import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { decodeQrPng, renderPdfPage } from './qr-decode.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const FIX = path.join(ROOT, 'test', 'fixtures', 'tavolo-levante');
@@ -361,6 +362,49 @@ async function main() {
   ok(w.job.outputs.pdf_manual_at && w.job.outputs.pdf_manual_at < w.job.manual_saved_at && w.job.outputs.pdf_at > w.job.manual_saved_at,
     'PDF finito dopo il salvataggio ma fatto con la scheda precedente: segnalato come da rifare');
   r = await req('PUT', `/api/jobs/${id}/manual`, { json: edited });
+
+  // ------------------------------------------------------------------------------------------------
+  section('Link del video → QR code a pagina 2 del PDF');
+  r = await req('GET', `/api/jobs/${id}`);
+  ok(r.data.video_url === null && r.data.outputs.pdf_video_url === null, 'all’inizio nessun link del video (video_url: null)');
+  for (const [value, re, label] of [
+    ['ftp://esempio.it/video', /https:\/\//, 'ftp://'],
+    ['javascript:alert(1)', /https:\/\//, 'javascript:'],
+    ['guarda il video', /spazi|valido/, 'testo qualsiasi'],
+    [`https://esempio.it/${'v'.repeat(490)}`, /500/, 'più di 500 caratteri'],
+    [42, /testo/, 'numero'],
+  ]) {
+    r = await req('PATCH', `/api/jobs/${id}`, { json: { video_url: value } });
+    ok(r.status === 400 && re.test(r.data.error || ''), `link non valido (${label}) → ${r.status} («${r.data.error}»)`);
+  }
+  r = await req('GET', `/api/jobs/${id}`);
+  ok(r.data.video_url === null, 'i link non validi non vengono salvati');
+  const VIDEO_URL = 'https://youtu.be/Levante-montaggio';
+  r = await req('PATCH', `/api/jobs/${id}`, { json: { video_url: `  ${VIDEO_URL}  `, name: 'Tavolo Levante' } });
+  ok(r.status === 200 && r.data.video_url === VIDEO_URL && r.data.name === 'Tavolo Levante', 'link salvato (spazi tolti), insieme agli altri campi');
+  ok(r.data.outputs.pdf && r.data.outputs.pdf_video_url === null, 'il PDF esistente non ha ancora il QR (video_url ≠ outputs.pdf_video_url: da ricreare)');
+  ok(JSON.parse(await fs.readFile(path.join(dir, 'job.json'), 'utf8')).video_url === VIDEO_URL, 'link scritto in job.json');
+  r = await req('POST', `/api/jobs/${id}/pdf`);
+  ok(r.status === 202, 'Ricrea il PDF → 202');
+  w = await waitJob(id, (j) => j.status === 'pdf_pronto' && j.outputs.pdf_video_url === VIDEO_URL, { timeout: 240000 });
+  ok(w.job.outputs.pdf_video_url === VIDEO_URL && w.job.video_url === VIDEO_URL, 'PDF ricreato con il QR del link (outputs.pdf_video_url)');
+  const layQr = JSON.parse(await fs.readFile(path.join(dir, 'pdf-build', 'layout.json'), 'utf8'));
+  ok(layQr.qr?.page === 2 && layQr.qr.url === VIDEO_URL && layQr.overflow.length === 0 && layQr.forced.length === 0,
+    `layout.json: QR a pagina ${layQr.qr?.page}, ${layQr.qr?.size_mm} mm, nessuno sbordamento`);
+  const htmlQr = await fs.readFile(path.join(dir, 'pdf-build', 'manuale.impaginato.html'), 'utf8');
+  ok((htmlQr.match(/<svg class="qr-svg"/g) || []).length === 1 && htmlQr.includes('>youtu.be/Levante-montaggio<'), 'riquadro con il QR (SVG) e il link stampato');
+  const png2 = renderPdfPage(path.join(dir, 'out', 'manuale.pdf'), 2, path.join(WORK, 'pagina2-qr'));
+  const qrText = png2 ? await decodeQrPng(png2) : undefined;
+  if (qrText === undefined) console.log('  (lettura del QR saltata: manca pdftoppm o un lettore di QR)');
+  else ok(qrText === VIDEO_URL, `QR letto dalla pagina 2 del PDF: ${qrText}`);
+  r = await req('PATCH', `/api/jobs/${id}`, { json: { video_url: VIDEO_URL } });
+  ok(r.status === 200 && r.data.outputs.pdf_video_url === r.data.video_url, 'stesso link salvato di nuovo: il PDF resta aggiornato');
+  r = await req('PATCH', `/api/jobs/${id}`, { json: { video_url: '' } });
+  ok(r.status === 200 && r.data.video_url === null && r.data.outputs.pdf_video_url === VIDEO_URL, 'link vuoto → null (il PDF con il QR va ricreato)');
+  r = await req('PATCH', `/api/jobs/${id}`, { json: { video_url: null } });
+  ok(r.status === 200 && r.data.video_url === null, 'link null → null');
+  const logQr = await fs.readFile(path.join(dir, 'log.txt'), 'utf8');
+  ok(/link del video per il QR code del PDF aggiornato/.test(logQr) && /link del video per il QR code del PDF tolto/.test(logQr), 'modifiche del link nel registro del lavoro');
 
   // ------------------------------------------------------------------------------------------------
   section('Video con immagini (anteprima)');

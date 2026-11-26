@@ -10,7 +10,7 @@ Lo strumento funziona sul tuo computer, nel browser. I tuoi file restano sul com
 
 1. **Analisi** – Claude legge il manuale (testi e figure) e prepara una scheda: componenti, ferramenta, passi di montaggio, avvertenze.
 2. **Revisione** – controlli la scheda e correggi quello che serve, con il documento originale a fianco.
-3. **PDF** – lo strumento impagina il manuale: copertina, componenti, ferramenta, passi illustrati, note.
+3. **PDF** – lo strumento impagina il manuale: copertina, componenti, ferramenta, passi illustrati, note (e, se vuoi, il QR code del video a pagina 2).
 4. **Video** – crea il video di montaggio: **3D** se hai il modello 3D del prodotto, altrimenti **con le immagini** del manuale.
 
 ## Cosa serve
@@ -59,6 +59,12 @@ Nella pagina iniziale trascina il manuale (PDF o Word .docx) nel riquadro grande
 
 ### 3. PDF
 Premi **Crea il PDF**: in meno di un minuto vedi l’anteprima. **Scarica il PDF** lo salva come `Istruzioni_Montaggio_<nome>.pdf`. Se modifichi la scheda, ricrea il PDF.
+
+**QR code del video (facoltativo).** Carica il video di montaggio su YouTube (va bene anche «non in elenco», così lo vede
+solo chi ha il link) o sul tuo sito, poi incolla il link nel campo **Link al video di montaggio** (nel passo PDF o nel
+passo Video) e premi **Salva**. Premi **Ricrea il PDF**: in fondo alla pagina 2 compare un riquadro con il QR code, che
+chi monta inquadra con la fotocamera del telefono per aprire il video. Il link deve iniziare con `https://`; per
+toglierlo svuota il campo e salva. Prima di stampare, prova il QR con il telefono.
 
 ### 4. Video
 Scegli il tipo di video e la qualità, poi premi **Crea il video**. Il file si scarica come `Montaggio_<nome>.mp4`.

@@ -63,7 +63,8 @@ log.txt                   registro testuale
   "progress": { "stage": "analisi", "pct": 40, "message": "Claude sta leggendo il documento…" },
   "error": null,
   "outputs": { "pdf": null, "video": null, "poster": null },
-  "video_mode": null }
+  "video_mode": null,
+  "video_url": null }
 ```
 
 Significato di `status` (scritto solo da `server.js`; l’interfaccia lo legge insieme a `task`, `progress` ed `error`):
@@ -92,6 +93,10 @@ Campi aggiuntivi scritti da `server.js`/`src/jobs.js` (tutti facoltativi per chi
 - `outputs.pdf_manual_at` / `outputs.video_manual_at` = `manual_saved_at` della scheda letta dall'operazione (all'inizio):
   se `manual_saved_at` è più recente, il PDF/video è stato fatto con una versione precedente e l'interfaccia lo segnala
   (anche se la scheda è stata salvata mentre l'operazione era in corso). Per i lavori più vecchi si usa `pdf_at`/`video_at`;
+- `video_url` = link del video di montaggio (http/https, ≤ 500 caratteri, oppure `null`) scritto dall'utente con
+  `PATCH /api/jobs/:id`: il PDF ha in fondo alla pagina 2 un riquadro con il QR code di quel link.
+  `outputs.pdf_video_url` = link usato dall'ultimo PDF (letto all'inizio dell'operazione): se è diverso da `video_url`
+  (link aggiunto, cambiato o tolto dopo), l'interfaccia segnala il PDF da ricreare;
 - `warnings` = `{ ingest:[], images:[], pdf:[], video:[], model:[] }` (avvisi da mostrare all’utente);
 - `cost` = `{ usd, text, calls, approx, items:[{label, usd, text}] }` dalla somma di `ai-usage.json` (null in modalità test);
 - `test_mode`, `analysed_at`, `manual_saved_at`, `thumb` (id immagine per la miniatura), `review.verified` (indici delle
@@ -123,7 +128,8 @@ finisce. Errori imprevisti (anche fuori dalle richieste) finiscono nella console
 | `src/ai/client.js` | `callStructured({ system, content, schema, maxTokens, effort, onProgress }) → parsed` | streaming, fallback lato server, gestione refusal/max_tokens/errori con messaggi italiani |
 | `src/ai/extract.js` | `extractManual(jobDir, ingestResult, onProgress) → ManualData` | scrive `manual.ai.json` e `manual.json`; valida con zod e ripara riferimenti a immagini inesistenti |
 | `src/ai/animate.js` | `planAnimation(jobDir, manual, parts, onProgress, { views, signal }?) → AnimationPlan` | scrive `plan.json`; `views` = viste delle parti da allegare |
-| `src/pdf/generate.js` | `generatePdf(jobDir, manual, { outPath, theme, onProgress, signal }) → outPath` | usa `immagini/final/*`; impaginazione automatica nel browser; scrive `pdf-build/layout.json` (pagine + `warnings`) |
+| `src/pdf/generate.js` | `generatePdf(jobDir, manual, { outPath, theme, videoUrl, onProgress, signal }) → outPath` | usa `immagini/final/*`; impaginazione automatica nel browser; scrive `pdf-build/layout.json` (pagine + `warnings`; con `videoUrl` anche `video_url` e `qr: { page, url, size_mm }`) |
+| `src/pdf/qr.js` | `normalizeVideoUrl(raw) → url\|null` (lancia `VideoUrlError` in italiano), `shortUrl(url)`, `buildQrSvg(url) → { svg, version, modules, sizeMm }` | QR code del video: pacchetto npm `qrcode` (MIT, caricato solo quando serve), correzione d'errore M, margine di 4 moduli, SVG vettoriale di 32–42 mm. L'impaginatore (`paginate.browser.js`) mette il riquadro (`#tpl-qr`) in fondo alla prima pagina interna (pagina 2) e accorcia la sua area utile; `verifyLayout` controlla che non si sovrapponga a contenuto e piè di pagina |
 | `src/video/model3d.js` | `importModel(jobDir, modelPath, onProgress, { upAxis:'auto'\|'y'\|'z', signal, log }?) → { glbPath, parts, meta }` | scrive `model.glb`, `parts.json`, `model.meta.json` |
 | `src/video/model3d.js` | `renderPartViews(jobDir, parts, { max: 24, theme, onProgress, signal }) → [{ key, label, file, path, keys, ui_file, ui_path }]` | immagini PNG (vista d'insieme + ogni gruppo di parti evidenziato) da dare a Claude per riconoscere i pezzi; `ui_*` = stessa vista senza etichetta |
 | `src/video/render.js` | `renderVideo(jobDir, { mode:'3d'\|'immagini', manual, plan, glbPath, quality:'1080p'\|'720p'\|'anteprima', theme, onProgress, signal }) → { videoPath, posterPath, duration, chapters, tags, warnings, … }` | Playwright + three.js + ffmpeg-static (`src/video/index.js` riesporta tutto) |
@@ -145,7 +151,8 @@ GET  /api/jobs                          elenco (riepiloghi)
 POST /api/jobs                          multipart: documento (obbligatorio, .pdf/.docx ≤ 100 MB), modello3d (facoltativo, ≤ 300 MB),
                                         upAxis? → 201 { id, job }; mette in coda l'analisi (+ lettura del modello in sottofondo)
 GET  /api/jobs/:id                      job.json (+ queue: { main, model } con stato in_corso/in_coda)
-PATCH /api/jobs/:id                     { review:{ verified:[indici] }?, name? }
+PATCH /api/jobs/:id                     { review:{ verified:[indici] }?, name?, video_url? } — video_url: link http/https
+                                        ≤ 500 caratteri ("" o null = nessun QR); non valido → 400 con messaggio italiano
 DELETE /api/jobs/:id                    annulla le operazioni del lavoro e cancella la cartella
 GET  /api/jobs/:id/events               Server-Sent Events con job.json a ogni aggiornamento (+ event: deleted)
 GET  /api/jobs/:id/catalog              ImageCatalog
@@ -196,8 +203,10 @@ resterebbero altrimenti in attesa.
   il browser all'avvio; `PORT` (3210) e `HOST` (127.0.0.1).
 - `MANUALI_TEST_DIR=/cartella` raccoglie le cartelle di lavoro di tutti i test (`server/`, `video/`, …; predefinita: la cartella
   temporanea di sistema).
-- `node test/run-all.js` (= `npm test`) esegue in fila tutti i `test/test-*.js` con un riepilogo; `test/test-server.js` prova
-  l'intera catena via HTTP in modalità test (caricamento, SSE, revisione, salvataggi simultanei, PDF/video da rifare, video con
+- `node test/run-all.js` (= `npm test`) esegue in fila tutti i `test/test-*.js` con un riepilogo; il QR code del video
+  stampato nel PDF viene anche letto (`test/qr-decode.js`: `jsqr`, devDependency, oppure OpenCV/zbarimg se ci sono;
+  pagina rasterizzata con `pdftoppm`, altrimenti la lettura si salta); `test/test-server.js` prova
+  l'intera catena via HTTP in modalità test (caricamento, SSE, revisione, salvataggi simultanei, PDF/video da rifare, link del video e QR, video con
   immagini e 3D, modello 3D rovinato, annullamento e cancellazione durante la lettura, doppio avvio, ripresa dopo la chiusura,
   intestazione Host, path traversal); `test/test-ui.js` apre l'interfaccia in Chromium (pagina del video con il modello in
   errore, telefono a 390 px, 7 schede aperte, errore «manca la chiave») e salva le schermate in `<MANUALI_TEST_DIR>/ui/schermate`.

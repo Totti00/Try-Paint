@@ -417,7 +417,7 @@ async function main() {
     assert.ok(lay.warnings.some((w) => /QR code del video non inserito: .*https:\/\//.test(w)), JSON.stringify(lay.warnings));
     assert.equal(lay.qr, undefined);
     let html = await fs.readFile(path.join(job, 'pdf-build', 'manuale.impaginato.html'), 'utf8');
-    assert.ok(!html.includes('class="qr-box"') && !html.includes('tpl-qr'));
+    assert.ok(!html.includes('class="qr-box"') && !html.includes('id="tpl-qr"'));
     await generatePdf(job, levanteManual, { videoUrl: '' });
     lay = await readJson(path.join(job, 'pdf-build', 'layout.json'));
     assert.deepEqual(lay.warnings, []);

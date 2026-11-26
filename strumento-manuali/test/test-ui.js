@@ -3,7 +3,8 @@
 //   - pagina del video con un modello 3D non leggibile (niente pagina bloccata, «Riprova» funzionante via SSE);
 //   - errore «manca la chiave»: «Vai a Impostazioni» è il pulsante principale;
 //   - revisione e PDF su uno schermo da telefono (390 px: niente scorrimento orizzontale, PDF da aprire a parte);
-//   - 7 schede aperte: le schede nascoste chiudono il flusso SSE e lo strumento resta raggiungibile.
+//   - 7 schede aperte: le schede nascoste chiudono il flusso SSE e lo strumento resta raggiungibile;
+//   - link del video per il QR code nel PDF (passi PDF e video): errore, salvataggio, «Ricrea il PDF».
 //
 //   node test/test-ui.js        (circa 1 minuto)
 //
@@ -180,6 +181,45 @@ async function main() {
     await page.screenshot({ path: path.join(SHOTS, 'telefono-pdf.png'), fullPage: true });
     ok(!phoneErrors.length, `nessun errore JavaScript${phoneErrors.length ? ': ' + phoneErrors.slice(0, 3).join(' | ') : ''}`);
     await phone.close();
+
+    // ----------------------------------------------------------------------------------------------
+    section('Link del video → QR code nel PDF (passi PDF e video)');
+    const linkErrors = [];
+    const wide = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: 'it-IT' });
+    page = await openPage(wide, `${srv.base}/#/lavoro/${id}/pdf`, linkErrors);
+    await page.getByText('Il tuo manuale PDF').waitFor({ timeout: 15000 });
+    const LABEL = 'Link al video di montaggio (per il QR code nel PDF)';
+    let field = page.getByLabel(LABEL);
+    ok(await field.count() === 1 && await field.isVisible(), `campo «${LABEL}»`);
+    ok(await page.getByText('Carica il video su YouTube (anche “non in elenco”) o sul tuo sito e incolla qui il link').isVisible(), 'suggerimento sotto il campo');
+    const linkBox = page.locator('.qr-link');
+    await field.fill('ftp://esempio.it/video');
+    await linkBox.getByRole('button', { name: 'Salva' }).click();
+    await page.locator('.toast.err').filter({ hasText: 'https://' }).waitFor({ timeout: 10000 });
+    ok(/invalid/.test(await field.getAttribute('class')), 'link non valido: messaggio in italiano e campo evidenziato');
+    ok((await api(srv, 'GET', `/api/jobs/${id}`)).data.video_url === null, 'link non valido non salvato');
+    await field.fill('youtu.be/Levante-montaggio');
+    await linkBox.getByRole('button', { name: 'Salva' }).click();
+    await page.getByText('Il PDF attuale non ha ancora il QR code').waitFor({ timeout: 10000 });
+    job = (await api(srv, 'GET', `/api/jobs/${id}`)).data;
+    ok(job.video_url === 'https://youtu.be/Levante-montaggio', `link salvato, con https:// aggiunto (${job.video_url})`);
+    ok(await linkBox.getByRole('button', { name: 'Ricrea il PDF' }).isVisible(), 'PDF segnalato da ricreare, con «Ricrea il PDF»');
+    await linkBox.screenshot({ path: path.join(SHOTS, 'pdf-link-video-da-ricreare.png') });
+    await page.screenshot({ path: path.join(SHOTS, 'pdf-link-video.png') });
+    await linkBox.getByRole('button', { name: 'Ricrea il PDF' }).click();
+    const goOn = page.getByRole('button', { name: 'Crea il PDF lo stesso' }); // modifiche dell'AI non ancora verificate
+    if (await goOn.waitFor({ timeout: 3000 }).then(() => true, () => false)) await goOn.click();
+    job = await waitFor(srv, id, (j) => j.status === 'pdf_pronto' && j.outputs.pdf_video_url === j.video_url, 180000);
+    await page.getByText('QR code nel PDF, a pagina 2').waitFor({ timeout: 15000 });
+    field = page.getByLabel(LABEL);
+    ok(await field.inputValue() === 'https://youtu.be/Levante-montaggio', 'PDF ricreato con il QR: stato «QR code nel PDF, a pagina 2»');
+    await page.locator('.qr-link').screenshot({ path: path.join(SHOTS, 'pdf-link-video-ok.png') });
+    page = await openPage(wide, `${srv.base}/#/lavoro/${id}/video`, linkErrors);
+    await page.getByText('Video online e QR code nel PDF').waitFor({ timeout: 15000 });
+    ok(await page.getByLabel(LABEL).inputValue() === 'https://youtu.be/Levante-montaggio', 'stesso campo nella pagina del video, con il link salvato');
+    await page.locator('.qr-link').screenshot({ path: path.join(SHOTS, 'video-link-video.png') });
+    ok(!linkErrors.length, `nessun errore JavaScript${linkErrors.length ? ': ' + linkErrors.slice(0, 3).join(' | ') : ''}`);
+    await wide.close();
 
     // ----------------------------------------------------------------------------------------------
     section('Sette schede aperte (il browser concede 6 connessioni per indirizzo)');
