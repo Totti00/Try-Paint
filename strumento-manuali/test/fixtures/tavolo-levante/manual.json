@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "language": "it",
+  "document_title": "Istruzioni di montaggio",
+  "short_name": "Tavolo Levante",
+  "products": [
+    { "category": "Tavoli", "names": ["Levante", "Libeccio", "Maestrale"] },
+    { "category": "Panche", "names": ["Gradisca", "Volpina"] }
+  ],
+  "footer_text": "Levante · Libeccio · Maestrale · Gradisca · Volpina",
+  "cover_image_id": "img_00",
+  "brand_logo_image_id": "img_14",
+  "hardware": [
+    { "id": "H1", "name": "Vite inox M8×20", "spec": "con flangia", "qty": 10, "image_id": "img_01" },
+    { "id": "H2", "name": "Rondella in nylon", "spec": "17×2×8,1", "qty": 10, "image_id": "img_03" },
+    { "id": "H3", "name": "Vite da legno inox", "spec": "4×20", "qty": 6, "image_id": "img_02" }
+  ],
+  "components": [
+    { "code": "F1", "name": "Fianchi tavolo in alluminio con asole", "qty": 2, "image_id": "img_04" },
+    { "code": "T1", "name": "Traversi superiori di giunzione dei fianchi", "qty": 2, "image_id": "img_05" },
+    { "code": "T2", "name": "Traverso inferiore di giunzione dei fianchi", "qty": 1, "image_id": "img_06" },
+    { "code": "P1", "name": "Piano tavolo a doghe in legno", "qty": 1, "image_id": "img_07" }
+  ],
+  "phases": [
+    { "title": "Struttura in alluminio", "step_numbers": [1, 2, 3, 4, 5] },
+    { "title": "Fissaggio del piano", "step_numbers": [6, 7] }
+  ],
+  "steps": [
+    { "number": 1, "title": "Posizionare i fianchi",
+      "paragraphs": ["Posizionare i due fianchi (F1) in maniera speculare."],
+      "image_ids": ["img_08"], "uses": [{ "ref": "F1", "qty": 2 }], "warning": null },
+    { "number": 2, "title": "Inserire i traversi superiori",
+      "paragraphs": ["Inserire i traversi di giunzione (T1) nelle apposite asole presenti sui montanti dei fianchi (F1), con gli angolari per il fissaggio del piano direzionati come mostrato in figura."],
+      "image_ids": ["img_09"], "uses": [{ "ref": "T1", "qty": 2 }], "warning": null },
+    { "number": 3, "title": "Avvitare le viti senza serrarle",
+      "paragraphs": ["Una volta posizionato correttamente il traverso (T1) nella sede e fatti combaciare i fori, procedere all’avvitatura delle viti fornite, con la rondella in nylon sottotesta, **senza serrarle**.", "Ripetere lo stesso procedimento per entrambi i traversi di giunzione (T1)."],
+      "image_ids": ["img_10"], "uses": [{ "ref": "H1", "qty": 8 }, { "ref": "H2", "qty": 8 }],
+      "warning": "Non serrare ancora le viti. Le 10 viti M8×20 si serrano tutte insieme al passo 5, a struttura completata." },
+    { "number": 4, "title": "Montare il traverso inferiore",
+      "paragraphs": ["Per il traverso inferiore (T2) utilizzare lo stesso procedimento di montaggio, assicurandosi di inserire il traverso nell’asola inferiore del fianco **spingendolo fino in fondo**, per utilizzare il foro di serraggio più interno."],
+      "image_ids": ["img_06"], "uses": [{ "ref": "T2", "qty": 1 }, { "ref": "H1", "qty": 2 }, { "ref": "H2", "qty": 2 }], "warning": null },
+    { "number": 5, "title": "Serrare le 10 viti",
+      "paragraphs": ["Al termine delle procedure precedenti si avrà l’articolo nella forma mostrata in figura.", "A questo punto dell’assemblaggio, procedere con il **serraggio delle 10 viti** precedentemente avvitate."],
+      "image_ids": ["img_11"], "uses": [{ "ref": "H1", "qty": 10 }], "warning": null },
+    { "number": 6, "title": "Posizionare la struttura sul piano",
+      "paragraphs": ["Posizionare la struttura in alluminio sul piano a doghe in legno (P1), cercando di allineare al meglio piano e struttura."],
+      "image_ids": ["img_12"], "uses": [{ "ref": "P1", "qty": 1 }], "warning": null },
+    { "number": 7, "title": "Fissare il piano",
+      "paragraphs": ["Successivamente avvitare le viti da legno fornite per accoppiare il piano con la struttura in alluminio, posizionandole nelle asole presenti sugli angolari rivettati ai traversi di giunzione (T1), come in figura."],
+      "image_ids": ["img_13"], "uses": [{ "ref": "H3", "qty": 6 }], "warning": null }
+  ],
+  "notes": [
+    { "label": "N.B.", "title": "Panche Gradisca e Volpina",
+      "text": "Per l’eventuale montaggio della panca Gradisca e della panca Volpina, adottare lo stesso procedimento di montaggio.",
+      "image_id": "img_00" }
+  ],
+  "unused_image_ids": ["img_04"],
+  "changes": [
+    { "kind": "incongruenza", "description": "La pagina dei componenti chiama T2 i traversi superiori e T3 quello inferiore, le istruzioni usano T1 e T2: uniformato a T1 (superiori) e T2 (inferiore).", "needs_confirmation": true },
+    { "kind": "uniformazione", "description": "\"Rondella in plastica\" → \"rondella in nylon\", come nella tabella della ferramenta.", "needs_confirmation": false },
+    { "kind": "correzione", "description": "Passo 5: \"al termine delle seguenti procedure\" → \"precedenti\".", "needs_confirmation": false },
+    { "kind": "correzione", "description": "Passo 7: \"nell’asola presente\" → \"nelle asole presenti\" (6 viti in 6 angolari).", "needs_confirmation": false },
+    { "kind": "uniformazione", "description": "\"Panchetto Volpina\" → \"panca Volpina\", come in copertina.", "needs_confirmation": false },
+    { "kind": "aggiunta", "description": "Quantità per passo ricavate dal totale (8 viti M8 sui traversi superiori, 2 sul traverso inferiore, 6 viti da legno, una per angolare).", "needs_confirmation": true },
+    { "kind": "aggiunta", "description": "Avvertenza al passo 3 sul serraggio rimandato al passo 5.", "needs_confirmation": false }
+  ]
+}

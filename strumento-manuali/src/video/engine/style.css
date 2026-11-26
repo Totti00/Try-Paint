@@ -1,0 +1,256 @@
+/* Stile del video: palette e tipografia del manuale (variabili impostate da text.js:applyThemeCss). */
+:root {
+  --ink: #1F1C1A; --text: #3B3632; --muted: #766D66; --line: #E4DED7;
+  --beige: #DBD3CB; --beige-soft: #F2EEE9; --paper: #F8F6F3;
+  --accent: #FF7E00; --accent-ink: #B45700;
+  --ink-a62: rgba(31, 28, 26, 0.62); --ink-a80: rgba(31, 28, 26, 0.8); --ink-a13: rgba(31, 28, 26, 0.13); --ink-a10: rgba(31, 28, 26, 0.10);
+  --panel: rgba(248, 246, 243, 0.95);
+  --studio: radial-gradient(120% 95% at 52% 38%, #FBF9F6 0%, #F3EFEA 42%, #E6DFD7 78%, #DBD3CB 100%);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: var(--beige); }
+
+#backdrop { position: absolute; inset: 0; background: var(--studio); }
+#dim { position: absolute; inset: 0; background: rgb(150, 130, 110); opacity: 0; }
+#gl { position: absolute; left: 0; top: 0; display: block; }
+#ghost { position: absolute; left: 0; top: 0; display: block; background: var(--studio); visibility: hidden; }
+body.mode-immagini #gl, body.mode-immagini #ghost, body.mode-immagini #dim { display: none; }
+
+#stage {
+  position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;
+  transform-origin: 0 0; overflow: hidden;
+  font-family: 'Barlow', sans-serif; color: var(--ink);
+  pointer-events: none; -webkit-font-smoothing: antialiased;
+}
+.hidden { visibility: hidden; opacity: 0; }
+
+/* ---------------------------------------------------------------- intestazione */
+#brand {
+  position: absolute; left: 96px; top: 60px;
+  display: flex; align-items: baseline; gap: 18px; white-space: nowrap;
+  font-family: 'Barlow Semi Condensed', sans-serif; font-size: 28px; letter-spacing: 0.02em;
+  isolation: isolate; max-width: 1100px;
+}
+#brand::before {
+  content: ''; position: absolute; z-index: -1; left: -70px; right: -90px; top: -40px; bottom: -36px;
+  background: radial-gradient(closest-side, var(--panel) 55%, transparent);
+}
+#brand b { font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; overflow: hidden; text-overflow: ellipsis; }
+#brand span { font-weight: 500; color: var(--ink-a62); }
+#brand i { width: 6px; height: 6px; background: var(--accent); display: inline-block; transform: translateY(-5px); flex: 0 0 6px; }
+
+/* ---------------------------------------------------------------- titolo iniziale (3D) */
+#intro { position: absolute; left: 112px; bottom: 150px; max-width: 1300px; }
+#intro .kicker, .kicker {
+  font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 600;
+  font-size: 34px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-a80);
+  margin-bottom: 6px;
+}
+#intro h1 { font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 800; font-size: 150px; line-height: 0.95; letter-spacing: -0.01em; white-space: nowrap; }
+.rule { width: 120px; height: 10px; background: var(--accent); margin: 30px 0 26px; }
+#intro .sub { font-weight: 500; font-size: 44px; color: var(--ink-a80); max-width: 1250px; }
+
+/* ---------------------------------------------------------------- didascalia (lower third) */
+#caption {
+  position: absolute; left: 96px; bottom: 64px;
+  display: flex; align-items: stretch; max-width: 1728px;
+  background: var(--panel);
+  box-shadow: 0 10px 40px rgba(31, 28, 26, 0.10), 0 1px 0 rgba(31, 28, 26, 0.06);
+}
+#caption.wide { width: 1728px; }
+#caption .badge {
+  flex: 0 0 132px; background: var(--accent); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 92px; line-height: 1;
+}
+#caption .badge svg { width: 64px; height: 64px; display: block; }
+#caption .badge .glyph { display: flex; align-items: center; justify-content: center; }
+#caption .text { padding: 26px 44px 22px 36px; min-width: 760px; flex: 1 1 auto; display: flex; flex-direction: column; }
+#caption .title {
+  font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700;
+  font-size: 54px; line-height: 1.06; letter-spacing: -0.003em; white-space: nowrap;
+}
+#caption .body { margin-top: 8px; font-weight: 500; font-size: 36px; line-height: 1.2; color: var(--ink-a80); }
+#caption .body strong { font-weight: 700; color: var(--ink); }
+#caption .progress { margin-top: auto; padding-top: 20px; display: flex; align-items: center; gap: 22px; }
+#caption .segs { display: flex; gap: 6px; flex: 1; }
+#caption .seg { flex: 1; height: 6px; background: var(--ink-a13); position: relative; overflow: hidden; }
+#caption .seg i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--ink); }
+#caption .seg.cur i { background: var(--accent); }
+#caption .count {
+  font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700;
+  font-size: 28px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-a80); white-space: nowrap;
+}
+#caption .count em { font-style: normal; color: var(--accent); }
+#caption .uses {
+  /* larga quanto i nomi, tra 500 e 640 px (oltre: puntini), così il testo del passo resta ampio */
+  flex: 0 0 auto; min-width: 500px; max-width: 640px; border-left: 2px solid var(--line); padding: 24px 30px 20px 28px;
+  display: flex; flex-direction: column; gap: 10px; justify-content: center;
+}
+#caption .uses h4 {
+  font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-size: 26px;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
+}
+#caption .use { display: flex; align-items: center; gap: 14px; min-height: 46px; }
+#caption .use .ph { flex: 0 0 52px; height: 44px; background: #fff; display: flex; align-items: center; justify-content: center; }
+#caption .use .ph img { max-width: 46px; max-height: 40px; }
+#caption .use .code {
+  flex: 0 0 auto; min-width: 52px; text-align: center; background: var(--ink); color: #fff;
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 32px; line-height: 1; padding: 7px 8px 6px;
+}
+#caption .use .nm { flex: 1; font-weight: 600; font-size: 32px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#caption .use .q { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 38px; color: var(--accent); }
+
+/* avvertenza: appena sopra la didascalia (bottom impostato da modeImages.js secondo l'altezza del pannello) */
+#warn {
+  position: absolute; left: 96px; bottom: 316px; max-width: 1728px;
+  display: flex; align-items: stretch; background: var(--ink); color: #fff;
+  box-shadow: 0 10px 30px rgba(31, 28, 26, 0.18);
+}
+#warn .tag {
+  flex: 0 0 auto; background: var(--accent); display: flex; align-items: center; gap: 12px;
+  padding: 0 24px; font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 800; font-size: 32px;
+  letter-spacing: 0.12em; text-transform: uppercase;
+}
+#warn .tag svg { width: 34px; height: 34px; }
+#warn .msg { padding: 14px 28px 14px 24px; font-weight: 500; font-size: 34px; line-height: 1.22; }
+
+/* ---------------------------------------------------------------- etichette parti (3D) */
+#leaders { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: visible; }
+.label {
+  position: absolute; white-space: nowrap; display: flex; align-items: center; gap: 14px;
+  padding: 10px 20px 10px 10px; background: var(--panel); box-shadow: 0 6px 22px rgba(31, 28, 26, 0.12);
+  font-family: 'Barlow Semi Condensed', sans-serif;
+}
+.label .code { background: var(--ink); color: #fff; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 38px; line-height: 1; padding: 6px 12px 5px; }
+.label .name { font-weight: 600; font-size: 34px; max-width: 520px; overflow: hidden; text-overflow: ellipsis; }
+.label .qty { font-weight: 800; font-size: 34px; color: var(--accent); }
+
+/* riquadro ferramenta (3D, componenti) */
+#hw {
+  position: absolute; right: 96px; top: 64px; width: 600px;
+  background: var(--panel); box-shadow: 0 10px 40px rgba(31, 28, 26, 0.10); padding: 26px 30px 18px;
+}
+#hw h3 {
+  font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-size: 28px; letter-spacing: 0.14em;
+  text-transform: uppercase; border-bottom: 3px solid var(--accent); padding-bottom: 12px; margin-bottom: 8px;
+}
+#hw .row { display: flex; align-items: center; gap: 20px; padding: 10px 0; border-bottom: 1px solid var(--ink-a10); }
+#hw .row:last-child { border-bottom: 0; }
+#hw .ph { flex: 0 0 96px; height: 96px; background: #fff; display: flex; align-items: center; justify-content: center; }
+#hw .ph img { max-width: 84px; max-height: 84px; }
+#hw .ph.none::after { content: ''; width: 34px; height: 34px; border: 4px solid var(--ink-a13); border-radius: 50%; }
+#hw .nm { flex: 1; font-weight: 500; font-size: 29px; line-height: 1.15; }
+#hw .nm small { display: block; font-size: 23px; color: var(--muted); }
+#hw .q { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 48px; color: var(--accent); }
+#hw .more { font-size: 24px; color: var(--muted); padding-top: 8px; }
+
+.tag3d {
+  position: absolute; white-space: nowrap; background: var(--ink); color: #fff;
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 44px; line-height: 1;
+  padding: 10px 18px 9px 16px; border-left: 8px solid var(--accent); box-shadow: 0 6px 20px rgba(31, 28, 26, 0.18);
+}
+
+/* ---------------------------------------------------------------- cartello finale */
+#endcard { position: absolute; inset: 0; background: var(--beige); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+#endcard img { max-width: 1300px; max-height: 700px; width: auto; height: auto; }
+#endcard .name { font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 800; font-size: 120px; line-height: 1; }
+#endcard .rule { margin: 34px auto 30px; }
+#endcard .sub { font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 600; font-size: 38px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-a80); }
+#endcard .foot { position: absolute; bottom: 70px; left: 0; right: 0; text-align: center; font-size: 26px; color: var(--ink-a62); letter-spacing: 0.04em; }
+
+/* ================================================================ modalita' "video con immagini" */
+.scene { position: absolute; inset: 0; will-change: opacity, transform; }
+.card {
+  position: absolute; background: #fff;
+  box-shadow: 0 22px 60px rgba(31, 28, 26, 0.13), 0 2px 0 rgba(31, 28, 26, 0.04);
+  will-change: transform;
+}
+.card img { position: absolute; display: block; }
+
+/* intro */
+.intro-text { position: absolute; left: 112px; top: 0; bottom: 0; width: 820px; display: flex; flex-direction: column; justify-content: center; }
+.intro-text.centered { left: 0; right: 0; width: auto; align-items: center; text-align: center; }
+.intro-text h1 { font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 800; font-size: 136px; line-height: 0.95; letter-spacing: -0.01em; }
+.intro-text .products { font-weight: 500; font-size: 36px; line-height: 1.35; color: var(--ink-a80); }
+.intro-text .products b { font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; color: var(--ink); letter-spacing: 0.04em; text-transform: uppercase; font-size: 28px; display: block; margin-top: 10px; }
+
+/* intestazioni di sezione */
+.sec-head { position: absolute; left: 96px; top: 130px; right: 96px; display: flex; align-items: flex-end; gap: 28px; }
+.sec-head h2 { font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 800; font-size: 76px; line-height: 1; }
+.sec-head .sub { font-weight: 500; font-size: 34px; color: var(--ink-a62); padding-bottom: 8px; }
+.sec-head .bar { position: absolute; left: 0; top: -26px; width: 90px; height: 8px; background: var(--accent); }
+
+/* schede componenti / ferramenta */
+.tile { position: absolute; background: #fff; box-shadow: 0 14px 40px rgba(31, 28, 26, 0.10); display: flex; flex-direction: column; }
+.tile .img { position: relative; flex: 1 1 auto; margin: 22px 22px 0; }
+.tile .img img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: contain; }
+.tile .img.none { background: repeating-linear-gradient(-45deg, var(--beige-soft) 0 14px, #fff 14px 28px); }
+.tile .foot { flex: 0 0 auto; display: flex; align-items: center; gap: 16px; padding: 18px 22px 20px; border-top: 2px solid var(--beige-soft); margin-top: 16px; }
+.tile .code { background: var(--ink); color: #fff; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 38px; line-height: 1; padding: 7px 12px 6px; flex: 0 0 auto; }
+.tile .nm { flex: 1; font-weight: 600; font-size: 28px; line-height: 1.12; }
+.tile .nm small { display: block; font-weight: 500; font-size: 23px; color: var(--muted); margin-top: 3px; }
+.tile .q { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 54px; color: var(--accent); flex: 0 0 auto; }
+
+/* elenco a due colonne (componenti / ferramenta senza immagini) */
+.lrow {
+  position: absolute; display: flex; align-items: center; gap: 28px; padding: 0 34px 0 22px;
+  background: #fff; box-shadow: 0 10px 30px rgba(31, 28, 26, 0.08);
+}
+.lrow .code {
+  flex: 0 0 auto; min-width: 96px; text-align: center; background: var(--ink); color: #fff;
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 50px; line-height: 1; padding: 10px 14px 9px;
+}
+.lrow .nm { flex: 1; min-width: 0; font-weight: 600; font-size: 42px; line-height: 1.1; }
+.lrow .nm small { display: block; font-weight: 500; font-size: 32px; color: var(--muted); margin-top: 2px; }
+.lrow .q { flex: 0 0 auto; font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 64px; color: var(--accent); }
+
+/* passo senza figura: l'occorrente del passo in grande */
+.occ { position: absolute; background: #fff; box-shadow: 0 22px 60px rgba(31, 28, 26, 0.13); padding: 38px 48px 30px; overflow: hidden; }
+.occ h3 {
+  font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-size: 36px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--ink-a80); border-bottom: 5px solid var(--accent); padding-bottom: 14px; margin-bottom: 8px;
+}
+.occ-grid { display: grid; column-gap: 56px; }
+.occ-item { display: flex; align-items: center; gap: 24px; min-height: 104px; padding: 10px 0; border-bottom: 1px solid var(--ink-a10); }
+.occ-item .ph { flex: 0 0 130px; height: 96px; background: var(--beige-soft); display: flex; align-items: center; justify-content: center; }
+.occ-item .ph img { max-width: 118px; max-height: 86px; }
+.occ-item .code {
+  flex: 0 0 auto; min-width: 92px; text-align: center; background: var(--ink); color: #fff;
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 46px; line-height: 1; padding: 10px 12px 9px;
+}
+.occ-item .nm { flex: 1; min-width: 0; font-weight: 600; font-size: 42px; line-height: 1.1; }
+.occ-item .nm small { display: block; font-weight: 500; font-size: 32px; color: var(--muted); }
+.occ-item .q { flex: 0 0 auto; font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 62px; color: var(--accent); }
+
+/* passo senza figura né pezzi, prima di qualsiasi figura: grande numero del passo */
+.stepnum { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.stepnum .bignum { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 380px; line-height: 0.8; color: var(--accent); }
+.stepnum .lbl {
+  margin-top: 34px; font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-size: 40px;
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-a62);
+}
+
+/* figura del passo precedente, attenuata (passo senza figura propria) */
+.card.dimmed { filter: grayscale(0.7); }
+
+/* fase */
+.phase { position: absolute; left: 112px; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; }
+.phase .num { font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700; font-size: 40px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent-ink); }
+.phase h2 { font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 800; font-size: 120px; line-height: 0.98; max-width: 1500px; }
+.phase .steps { font-weight: 500; font-size: 36px; color: var(--ink-a62); }
+
+/* note */
+.note-text { position: absolute; left: 112px; top: 0; bottom: 0; width: 900px; display: flex; flex-direction: column; justify-content: center; }
+.note-text.full { width: 1500px; }
+.note-text .ntag { align-self: flex-start; background: var(--accent); color: #fff; font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 800; font-size: 32px; letter-spacing: 0.12em; text-transform: uppercase; padding: 8px 20px; margin-bottom: 26px; }
+.note-text h2 { font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 800; font-size: 84px; line-height: 1; margin-bottom: 30px; }
+.note-text p { font-weight: 500; font-size: 40px; line-height: 1.32; color: var(--text); }
+
+/* completato */
+.done { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.done .check { width: 150px; height: 150px; background: var(--accent); display: flex; align-items: center; justify-content: center; margin-bottom: 44px; }
+.done .check svg { width: 96px; height: 96px; }
+.done h2 { font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 800; font-size: 120px; line-height: 1; }
+.done .sub { margin-top: 26px; font-weight: 500; font-size: 38px; color: var(--ink-a62); max-width: 1500px; }

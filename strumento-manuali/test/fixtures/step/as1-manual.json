@@ -1,0 +1,102 @@
+{
+ "version": 1,
+ "language": "it",
+ "document_title": "Istruzioni di montaggio",
+ "short_name": "Gruppo staffa",
+ "products": [],
+ "footer_text": "",
+ "cover_image_id": null,
+ "brand_logo_image_id": null,
+ "hardware": [
+  {
+   "id": "H1",
+   "name": "Bullone",
+   "spec": "",
+   "qty": 6,
+   "image_id": null
+  },
+  {
+   "id": "H2",
+   "name": "Dado",
+   "spec": "",
+   "qty": 8,
+   "image_id": null
+  }
+ ],
+ "components": [
+  {
+   "code": "A",
+   "name": "Piastra di base",
+   "qty": 1,
+   "image_id": null
+  },
+  {
+   "code": "B",
+   "name": "Staffa a L",
+   "qty": 2,
+   "image_id": null
+  },
+  {
+   "code": "C",
+   "name": "Asta",
+   "qty": 1,
+   "image_id": null
+  }
+ ],
+ "phases": [],
+ "steps": [
+  {
+   "number": 1,
+   "title": "Appoggiare la piastra (A)",
+   "paragraphs": [
+    "Appoggiare la piastra (A)."
+   ],
+   "image_ids": [],
+   "uses": [],
+   "warning": null
+  },
+  {
+   "number": 2,
+   "title": "Posizionare le due staffe (B)",
+   "paragraphs": [
+    "Posizionare le due staffe (B)."
+   ],
+   "image_ids": [],
+   "uses": [],
+   "warning": null
+  },
+  {
+   "number": 3,
+   "title": "Fissare le staffe con bulloni e dadi",
+   "paragraphs": [
+    "Fissare le staffe con bulloni e dadi."
+   ],
+   "image_ids": [],
+   "uses": [],
+   "warning": null
+  },
+  {
+   "number": 4,
+   "title": "Inserire l’asta (C) nei fori delle staffe",
+   "paragraphs": [
+    "Inserire l’asta (C) nei fori delle staffe."
+   ],
+   "image_ids": [],
+   "uses": [],
+   "warning": null
+  },
+  {
+   "number": 5,
+   "title": "Bloccare l’asta con i due dadi",
+   "paragraphs": [
+    "Bloccare l’asta con i due dadi."
+   ],
+   "image_ids": [],
+   "uses": [],
+   "warning": null
+  }
+ ],
+ "notes": [],
+ "unused_image_ids": [],
+ "changes": []
+}

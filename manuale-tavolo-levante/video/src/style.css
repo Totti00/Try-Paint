@@ -1,0 +1,175 @@
+/* Stile del video: palette e tipografia del manuale cartaceo ridisegnato. */
+:root {
+  --ink: #1F1C1A;
+  --beige: #DBD3CB;
+  --paper: #F6F3EF;
+  --orange: #FF7E00;
+  --wood: #AC9C84;
+  --wood-dark: #73624D;
+  --studio: radial-gradient(120% 95% at 52% 38%, #FBF9F6 0%, #F3EFEA 42%, #E6DFD7 78%, #DBD3CB 100%);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%; overflow: hidden;
+  background: var(--beige);
+}
+
+/* fondale da studio: carta chiara al centro, beige ai bordi */
+#backdrop {
+  position: absolute; inset: 0;
+  background: var(--studio);
+}
+
+#dim { position: absolute; inset: 0; background: rgb(150, 130, 110); opacity: 0; }  /* opacita' da main.js */
+#gl { position: absolute; inset: 0; display: block; }
+/* inquadratura uscente durante le dissolvenze: stesso fondale, quindi copre del tutto il canvas */
+#ghost { position: absolute; left: 0; top: 0; display: block; background: var(--studio); visibility: hidden; }
+
+#stage {
+  position: absolute; left: 0; top: 0;
+  width: 1920px; height: 1080px;
+  transform-origin: 0 0;
+  font-family: 'Barlow', sans-serif;
+  color: var(--ink);
+  pointer-events: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- intestazione in alto a sinistra ---------- */
+#brand {
+  position: absolute; left: 96px; top: 64px;
+  display: flex; align-items: baseline; gap: 18px;
+  font-family: 'Barlow Semi Condensed', sans-serif;
+  font-size: 28px; letter-spacing: 0.02em;
+  isolation: isolate;
+}
+/* velo color carta dietro l'intestazione: la geometria che passa sotto non disturba il testo */
+#brand::before {
+  content: ''; position: absolute; z-index: -1;
+  left: -70px; right: -90px; top: -40px; bottom: -36px;
+  background: radial-gradient(closest-side, rgba(246, 243, 239, 0.92) 55%, rgba(246, 243, 239, 0));
+}
+#brand b { font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; }
+#brand span { font-weight: 500; color: rgba(31, 28, 26, 0.62); }
+#brand i { width: 6px; height: 6px; background: var(--orange); display: inline-block; transform: translateY(-5px); }
+
+/* ---------- titolo iniziale ---------- */
+#intro {
+  position: absolute; left: 112px; bottom: 150px;
+}
+#intro .kicker {
+  font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 600;
+  font-size: 34px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: rgba(31, 28, 26, 0.7);
+  margin-bottom: 6px;
+}
+#intro h1 {
+  font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 800;
+  font-size: 150px; line-height: 0.95; letter-spacing: -0.01em;
+}
+#intro .rule { width: 120px; height: 10px; background: var(--orange); margin: 30px 0 26px; }
+#intro .sub {
+  font-weight: 500; font-size: 44px; color: rgba(31, 28, 26, 0.82);
+}
+
+/* ---------- didascalia in basso (lower third) ---------- */
+#caption {
+  position: absolute; left: 96px; bottom: 64px;
+  display: flex; align-items: stretch;
+  max-width: 1600px;
+  background: rgba(246, 243, 239, 0.95);
+  box-shadow: 0 10px 40px rgba(31, 28, 26, 0.10), 0 1px 0 rgba(31, 28, 26, 0.06);
+}
+#caption .badge {
+  flex: 0 0 132px;
+  background: var(--orange);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 800;
+  font-size: 92px; line-height: 1;
+}
+#caption .badge svg { width: 64px; height: 64px; display: block; }
+#caption .badge .glyph { display: flex; align-items: center; justify-content: center; }
+#caption .text { padding: 26px 44px 22px 36px; min-width: 760px; }
+#caption .title {
+  font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700;
+  font-size: 54px; line-height: 1.06; letter-spacing: -0.003em;
+}
+#caption .body {
+  margin-top: 8px;
+  font-weight: 500; font-size: 36px; line-height: 1.2;
+  color: rgba(31, 28, 26, 0.80);
+}
+#caption .progress {
+  margin-top: 20px;
+  display: flex; align-items: center; gap: 22px;
+}
+#caption .segs { display: flex; gap: 6px; flex: 1; }
+#caption .seg { flex: 1; height: 6px; background: rgba(31, 28, 26, 0.13); position: relative; overflow: hidden; }
+#caption .seg i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ink); }
+#caption .seg.cur i { background: var(--orange); }
+#caption .count {
+  font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700;
+  font-size: 26px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: rgba(31, 28, 26, 0.72);
+  white-space: nowrap;
+}
+#caption .count em { font-style: normal; color: var(--orange); }
+
+/* ---------- etichette parti (esploso) ---------- */
+#leaders { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: visible; }
+.label {
+  position: absolute; white-space: nowrap;
+  display: flex; align-items: center; gap: 14px;
+  padding: 10px 20px 10px 10px;
+  background: rgba(246, 243, 239, 0.96);
+  box-shadow: 0 6px 22px rgba(31, 28, 26, 0.12);
+  font-family: 'Barlow Semi Condensed', sans-serif;
+}
+.label .code {
+  background: var(--ink); color: #fff;
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
+  font-size: 38px; line-height: 1; padding: 6px 12px 5px;
+}
+.label .name { font-weight: 600; font-size: 34px; }
+.label .qty { font-weight: 800; font-size: 34px; color: var(--orange); }
+
+/* ---------- ferramenta ---------- */
+#hw {
+  position: absolute; right: 96px; top: 64px; width: 600px;
+  background: rgba(246, 243, 239, 0.96);
+  box-shadow: 0 10px 40px rgba(31, 28, 26, 0.10);
+  padding: 26px 30px 18px;
+}
+#hw h3 {
+  font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 700;
+  font-size: 28px; letter-spacing: 0.14em; text-transform: uppercase;
+  border-bottom: 3px solid var(--orange); padding-bottom: 12px; margin-bottom: 8px;
+}
+#hw .row { display: flex; align-items: center; gap: 20px; padding: 10px 0; border-bottom: 1px solid rgba(31, 28, 26, 0.10); }
+#hw .row:last-child { border-bottom: 0; }
+#hw .ph { flex: 0 0 96px; height: 96px; background: #fff; display: flex; align-items: center; justify-content: center; }
+#hw .ph img { max-width: 84px; max-height: 84px; }
+#hw .nm { flex: 1; font-weight: 500; font-size: 29px; line-height: 1.15; }
+#hw .q { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 48px; color: var(--orange); }
+
+/* ---------- etichette quantita' ---------- */
+.tag {
+  position: absolute; white-space: nowrap;
+  background: var(--ink); color: #fff;
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
+  font-size: 44px; line-height: 1;
+  padding: 10px 18px 9px 16px;
+  border-left: 8px solid var(--orange);
+  box-shadow: 0 6px 20px rgba(31, 28, 26, 0.18);
+}
+
+/* ---------- cartello finale ---------- */
+#endcard {
+  position: absolute; inset: 0;
+  background: var(--beige);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+#endcard img { height: 640px; width: auto; clip-path: inset(6px 0 0 0); }  /* le prime 4 righe dell'immagine sono piu' scure del fondo */

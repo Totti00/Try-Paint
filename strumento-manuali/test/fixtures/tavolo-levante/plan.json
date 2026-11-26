@@ -1,0 +1,112 @@
+{
+  "version": 1,
+  "title": "Tavolo Levante",
+  "subtitle": "Struttura in alluminio, piano a doghe in legno",
+  "up_axis_in_source": "y",
+  "parts": [
+    { "key": "p01", "role": "component", "ref": "F1" },
+    { "key": "p02", "role": "component", "ref": "F1" },
+    { "key": "p03", "role": "component", "ref": "T1" },
+    { "key": "p04", "role": "component", "ref": "T1" },
+    { "key": "p05", "role": "component", "ref": "T2" },
+    { "key": "p06", "role": "component", "ref": "P1" },
+    { "key": "p07", "role": "hardware", "ref": "H1" },
+    { "key": "p08", "role": "hardware", "ref": "H2" },
+    { "key": "p09", "role": "hardware", "ref": "H1" },
+    { "key": "p10", "role": "hardware", "ref": "H2" },
+    { "key": "p11", "role": "hardware", "ref": "H1" },
+    { "key": "p12", "role": "hardware", "ref": "H2" },
+    { "key": "p13", "role": "hardware", "ref": "H1" },
+    { "key": "p14", "role": "hardware", "ref": "H2" },
+    { "key": "p15", "role": "hardware", "ref": "H1" },
+    { "key": "p16", "role": "hardware", "ref": "H2" },
+    { "key": "p17", "role": "hardware", "ref": "H1" },
+    { "key": "p18", "role": "hardware", "ref": "H2" },
+    { "key": "p19", "role": "hardware", "ref": "H1" },
+    { "key": "p20", "role": "hardware", "ref": "H2" },
+    { "key": "p21", "role": "hardware", "ref": "H1" },
+    { "key": "p22", "role": "hardware", "ref": "H2" },
+    { "key": "p23", "role": "hardware", "ref": "H1" },
+    { "key": "p24", "role": "hardware", "ref": "H2" },
+    { "key": "p25", "role": "hardware", "ref": "H1" },
+    { "key": "p26", "role": "hardware", "ref": "H2" },
+    { "key": "p27", "role": "hardware", "ref": "H3" },
+    { "key": "p28", "role": "hardware", "ref": "H3" },
+    { "key": "p29", "role": "hardware", "ref": "H3" },
+    { "key": "p30", "role": "hardware", "ref": "H3" },
+    { "key": "p31", "role": "hardware", "ref": "H3" },
+    { "key": "p32", "role": "hardware", "ref": "H3" }
+  ],
+  "steps": [
+    {
+      "number": 1,
+      "caption_title": "Posizionare i due fianchi (F1) in maniera speculare",
+      "caption_body": "Con le asole dei montanti rivolte verso l’interno",
+      "actions": [
+        { "type": "insert", "keys": ["p01"], "direction": [-1, 0, 0], "distance_factor": 6, "loose": null, "axis": null, "angle_deg": null },
+        { "type": "insert", "keys": ["p02"], "direction": [1, 0, 0], "distance_factor": 6, "loose": null, "axis": null, "angle_deg": null }
+      ],
+      "closeup_keys": []
+    },
+    {
+      "number": 2,
+      "caption_title": "Inserire i traversi superiori (T1) nelle asole",
+      "caption_body": "Angolari di fissaggio rivolti verso l’interno",
+      "actions": [
+        { "type": "insert", "keys": ["p03", "p04"], "direction": [0, 1, 0], "distance_factor": 4, "loose": null, "axis": null, "angle_deg": null }
+      ],
+      "closeup_keys": []
+    },
+    {
+      "number": 3,
+      "caption_title": "Avvitare le viti M8 con rondella in nylon",
+      "caption_body": "Senza serrarle — 4 viti per traverso",
+      "actions": [
+        { "type": "fasten", "keys": ["p07", "p08", "p09", "p10"], "direction": null, "distance_factor": null, "loose": true, "axis": null, "angle_deg": null },
+        { "type": "fasten", "keys": ["p11", "p12", "p13", "p14", "p15", "p16", "p17", "p18", "p19", "p20", "p21", "p22"], "direction": null, "distance_factor": null, "loose": true, "axis": null, "angle_deg": null }
+      ],
+      "closeup_keys": ["p07", "p09"]
+    },
+    {
+      "number": 4,
+      "caption_title": "Inserire il traverso inferiore (T2)",
+      "caption_body": "Spingerlo fino in fondo e usare il foro più interno",
+      "actions": [
+        { "type": "insert", "keys": ["p05"], "direction": [0, 0, 1], "distance_factor": 10, "loose": null, "axis": null, "angle_deg": null },
+        { "type": "fasten", "keys": ["p23", "p24", "p25", "p26"], "direction": null, "distance_factor": null, "loose": true, "axis": null, "angle_deg": null }
+      ],
+      "closeup_keys": []
+    },
+    {
+      "number": 5,
+      "caption_title": "Serrare tutte le 10 viti",
+      "caption_body": "La struttura in alluminio è completa",
+      "actions": [
+        { "type": "tighten", "keys": ["p07", "p09", "p11", "p13", "p15", "p17", "p19", "p21", "p23", "p25"], "direction": null, "distance_factor": null, "loose": null, "axis": null, "angle_deg": null }
+      ],
+      "closeup_keys": []
+    },
+    {
+      "number": 6,
+      "caption_title": "Capovolgere la struttura sul piano a doghe (P1)",
+      "caption_body": "Allineare al meglio piano e struttura",
+      "actions": [
+        { "type": "flip", "keys": [], "direction": null, "distance_factor": null, "loose": null, "axis": "x", "angle_deg": 180 },
+        { "type": "insert", "keys": ["p06"], "direction": [0, -1, 0], "distance_factor": 1.5, "loose": null, "axis": null, "angle_deg": null }
+      ],
+      "closeup_keys": []
+    },
+    {
+      "number": 7,
+      "caption_title": "Fissare il piano con le 6 viti da legno",
+      "caption_body": "Nelle asole degli angolari dei traversi T1",
+      "actions": [
+        { "type": "fasten", "keys": ["p27"], "direction": null, "distance_factor": null, "loose": false, "axis": null, "angle_deg": null },
+        { "type": "fasten", "keys": ["p28", "p29", "p30", "p31", "p32"], "direction": null, "distance_factor": null, "loose": false, "axis": null, "angle_deg": null }
+      ],
+      "closeup_keys": ["p27"]
+    }
+  ],
+  "final_caption_title": "Montaggio completato",
+  "final_caption_body": "Stesso procedimento per Panca Gradisca e Panca Volpina"
+}
